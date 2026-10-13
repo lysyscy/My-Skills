@@ -8,7 +8,7 @@ Status: living
 
 ## 当前入口
 
-- [improve-workflow](skills/improve-workflow/SKILL.md)：说“复盘并优化个人工作流”，复用 Matt retro，维护整个个人包、未来技能和入口自身，验证后自动发布并同步本机。只要求分析时保持只读。
+- [improve-workflow](skills/improve-workflow/SKILL.md)：说“复盘并优化个人工作流”，复用 Matt retro，提炼并分配通用与项目候选，按具体能力缺口评估外部技能或参考；维护个人包、未来技能和入口自身，验证后自动发布并同步本机。只要求分析时保持只读。选择方法回[候选归属与外部能力](skills/improve-workflow/references/improvement-selection.md)。
 - [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：已确认的个人实施、动态分派、模型限制、验证策略与评审节奏。执行规则只在这里维护。
 - `skills/implement-solo-spec/agents/openai.yaml`：保留显式调用策略，随技能源维护。
 - [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：个人基础约定接入技能，先核必要绑定，按实际缺口展开，复用 Matt 配置与项目现有入口；历史试跑见下文，长期效果仍待观察。
