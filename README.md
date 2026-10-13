@@ -9,15 +9,15 @@ Status: living
 ## 当前入口
 
 - [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：已确认的个人实施、动态分派、模型限制、验证策略与评审节奏。执行规则只在这里维护。
-- `skills/implement-solo-spec/agents/openai.yaml`：保留显式调用策略。此处是唯一维护源；用户级安装目录通过符号链接读取此源，无需维护第二份副本。
-- [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：个人基础约定接入技能，复用 Matt 配置与项目现有入口；已安装并接入 tutoring-scheduler，完成 screen-honesty 收尾试跑，长期效果仍待观察。
+- `skills/implement-solo-spec/agents/openai.yaml`：保留显式调用策略，随技能源维护。
+- [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：个人基础约定接入技能，复用 Matt 配置与项目现有入口；历史试跑见下文，长期效果仍待观察。
 - [文档维护约定](skills/setup-solo-workflow/references/document-maintenance.md)：接入技能与项目条件入口可读取的通用方法，具体目录和例外由项目维护。
 
 ## 已定方向
 
 沿用 Matt 的需求澄清、规格、拆票和两轴审查方法。Matt setup 配置票源、状态词汇与领域资料；个人 setup 接好持续维护与验证的基础约定；implement-solo-spec 协调整个 effort 的实施。个人接入通过仓内条件指针引用 implement-solo-spec 的普通改动、验证和输入接续规则，日常执行无需重跑 setup。已明确采用该技能的 effort 可整体或按授权批次实施，新对话沿用采用记录与累计评审边界。
 
-接入先核 Matt 配置：有效配置直接复用，缺失或需变更时按 `setup-matt-pocock-skills` 原版处理相应配置，再由 `setup-solo-workflow` 接好入口。随后按需求进入 `grill-with-docs` → `to-spec` → `to-tickets` → 实施与人工验收；普通小改动按当前请求执行。老项目保留有效配置、历史和活动工作，只补确认的缺口。Matt 技能原版保持独立，个人技能不复制其访谈、规格或票模板。
+接入先核项目配置：有效配置或等价约定直接复用，缺失或需变更的 Matt 配置按 `setup-matt-pocock-skills` 原版处理，再由 `setup-solo-workflow` 接好入口。随后按需求进入 `grill-with-docs` → `to-spec` → `to-tickets` → 实施与人工验收；普通小改动按当前请求执行。老项目保留有效配置、历史和活动工作，只补确认的缺口。Matt 技能原版保持独立，个人技能不复制其访谈、规格或票模板。
 
 个人技能负责通用方法；具体项目的适配文档负责规格与票源、权威资料、测试命令、数据和服务约束。本项目不收集各仓业务规则或维护项目命令副本。
 
@@ -27,21 +27,23 @@ Status: living
 
 隔离演练已覆盖 Matt 配置后的新项目接入、老项目重复接入及普通需求修订。新项目建立读取入口与后续资料落点，没有提前创建空规格、词汇表、ADR、票或测试；老项目保留现有票源和历史，普通执行者能够自行同步需求、待办与当前票。演练曾发现待办复制业务规则的问题，明确引用格式后复测：业务定义在权威处更新，活待办只保留引用、状态与下一步，旧任务范围与历史记录保留。这些结果验证了演练场景中的入口与行为，尚未证明长期维护效果或速度、token 收益。
 
-## 当前状态与后续
+## 安装现场与试跑记录
 
-setup-solo-workflow 已安装到 `C:/Users/Administrator/.agents/skills/setup-solo-workflow`，符号链接指向本项目的 `skills/setup-solo-workflow`；技能及引用资料只维护这一份源。新对话调用 `$setup-solo-workflow` 对目标项目接入，已有 Matt 配置直接核验复用。2026-10-13 已接入 tutoring-scheduler，并结合 screen-honesty 收尾补齐完成状态核对、接入保存状态与临时现场处置；项目接入改动已写入该项目工作区，尚未提交，功能收尾、部署及归档已分别保存。本技能源已纳入 Git，远端和维护方式见下节；产品项目的保存状态独立维护。
+2026-10-13 当前宿主核实：两个用户级技能目录 `C:/Users/Administrator/.agents/skills/setup-solo-workflow`、`C:/Users/Administrator/.agents/skills/implement-solo-spec` 均为 junction，分别指向 `D:/dev/My-Skills/skills/` 下同名目录；实际技能内容与引用可达，个人维护源只有本仓这一份。原安装副本保留在 `C:/Users/Administrator/.agents/skill-install-backups/20261013-mtrl320`，仅供恢复。其他宿主仍须查实际链接、内容和引用，不能凭本记录认定已安装。
 
-技能校验使用独立维护环境 `C:/Users/Administrator/.agents/skill-validation-venv/Scripts/python.exe`（PyYAML 6.0.3），运行 skill-creator 的 `quick_validate.py` 时加 `-X utf8`。setup-solo-workflow 已通过该现有校验；这只证明技能结构有效，不代表长期执行效果。
+历史记录：此前已接入 tutoring-scheduler，并结合 screen-honesty 收尾补齐完成状态核对、接入保存状态与临时现场处置；当轮记录为项目接入改动已写工作区、尚未提交，功能收尾、部署及归档分别保存。此前 setup-solo-workflow 通过独立环境 `C:/Users/Administrator/.agents/skill-validation-venv/Scripts/python.exe`（PyYAML 6.0.3）的 `quick_validate.py` 校验。本轮未重新验证这些项目、环境或保存状态。
 
-已安装到 `C:/Users/Administrator/.agents/skills/implement-solo-spec`，链接目标为本项目的 `skills/implement-solo-spec`。只在用户明确采用时启用；既有任务继续原授权。测试路线与使用条件见技能的“验证与失败处理”；项目中的实际入口由各仓适配文档维护。
+本次真实适配对象为 `D:/dev/mtrl-workbench`：复用已有 AGENTS、TAIL 票、delivery 业务资料与决策记录；通用方法改为条件指针，保留既有重构的串行授权范围。该仓执行器按整组选集及广泛输入签名复用，票与规则文档变化也可能使结果失效；个人规则须区分证据可复用与机器实际能力。
+
+此前文档轮的 28 项测试及 doc/byte/claim 检查通过，自动入口仍因未改动归档工具的旧钩子断言返回非零；该结果保留为无关既有失败，不能声称入口全绿。本次据此补清失败归因与范围边界，并要求普通收尾同步受影响的活说明后核最终输入，沿用原票及证据。本轮独立只读重复接入核对确认无需重跑Matt配置或新建资料骨架；隔离资料修订演练由执行者自主更新业务主人、活待办指针和原票追加记录，并保留功能未实现状态。主Agent核实实际仅改这三份夹具文件；相关/无关既有失败的两种场景完成了只读归因核对，没有执行工具搬运。这些证据验证当前入口和演练行为，尚不证明真实业务实施、跨批effort或长期省时/token收益。
 
 继续完善时保持 Matt 原版独立，按需查看相关上游变化，避免逐份技能长期合并。先用少量真实 effort 核对用户介入、等待、核验及返工成本，再决定是否调整规则；不承诺未经实测的速度或 token 收益。
 
-在新任务中显式调用 `$implement-solo-spec` 并提供规格与票目录。若技能选择器未显示它，重启 Codex 后再选；发现与链接方式见[官方技能文档](https://learn.chatgpt.com/docs/build-skills)。安装及入口衔接已完成，setup 的真实收尾试跑已完成；本轮已补齐普通改动、单票与分批接续及实际差异评审协议，并定向收敛样本项目的重复方法；六类场景的指令核对不代替真实任务试跑，尚无实际速度或 token 收益结论。提交、发布与部署按每个项目当前授权执行。
+在新任务中显式调用 `$implement-solo-spec` 并提供规格与票入口；只在用户明确采用时启用，既有任务继续原授权。此前六类场景的指令核对、setup 收尾试跑及样本项目重复方法收敛均为历史证据，不能代替新项目行为验证。提交、发布与部署按每个项目当前授权执行。
 
 ## 仓库维护
 
-远端为 [lysyscy/My-Skills](https://github.com/lysyscy/My-Skills)，本地 `main` 跟踪 `origin/main`。本目录是技能维护源；用户级符号链接仍读取这里，更新技能无需复制到安装目录。
+远端为 [lysyscy/My-Skills](https://github.com/lysyscy/My-Skills)，本地 `main` 跟踪 `origin/main`。本目录是技能维护源；用户级链接读取这里，更新技能无需复制到安装目录。
 
 修改后核对差异、运行相关技能校验，再提交并推送到远端。引入远端改动前先核工作区；有本地未提交工作时先妥善保存，再运行 `git pull --ff-only`。`.gitattributes` 统一提交为 LF；`.gitignore` 排除本地环境、缓存和凭据文件。
 
