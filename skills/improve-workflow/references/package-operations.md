@@ -10,7 +10,9 @@ inspect的upstream字段比较实际原版及资源指纹；unverified或changed
 
 | 动作 | 输入与结果 | Agent 下一步 |
 |---|---|---|
-| inspect | 实际源 `--source`；安装根 `--install-root` 默认为本机 `.agents/skills`；发现技能、上游路径、dirty和未完运行 | 判断当前任务范围；只分析时止于只读 |
+| inspect | 实际源 `--source`；安装根 `--install-root` 默认为本机 `.agents/skills`；发现技能、上游路径、dirty、未完运行及 installation | 按实际链接类型、目标和内容匹配核入口，判断范围；只分析时止于只读 |
+| read | `--file`，相对引用加 `--relative-to`；默认限量文本或 JSON 概览，细读用 `--pointer` / `--offset` | 按下一节读取所需证据，不把概览或截断部分当成完整内容 |
+| structure | 实际源、`--validator` 和 `--validation-python`；先核 yaml，再执行发现的全部技能的现有验证器 | 环境阻塞时先选可用解释器，技能失败时修候选；此结果不替代 verify |
 | prepare | 唯一 `--run`；保存稳定源原件、二进制差异、原HEAD与内容摘要，从最新主线建 worktree | 在返回的worktree迁入确认的增量；之后调用返回的runtime，始终带实际source和run |
 | verify | 运行标识；固定策略下执行候选检查及保存的旧回归，记录内容摘要和退出码 | 核原问题反馈、语义和审查；失败修复后再验 |
 | publish | 有效验证、已提交的隔离worktree | published 后同步；needs_verification 或 conflict 时整合、核证据再验；pending 保留并按本轮三次上限处理 |
@@ -30,6 +32,16 @@ prepare 先保存稳定源中的 tracked 和未忽略的新文件；忽略的凭
 已发布并确认原增量逐项处置后，sync 可带 `--reconcile-source`：只有源HEAD、内容及快照仍匹配时，才释放已保存的旧dirty并正常推进主线。源已被其他任务改动时重新保护新成果，不能沿用旧快照释放它。
 
 安装根已有个人技能普通副本时先比较，保护并迁入其独有改动；随后才用 `--adopt-copies` 将原目录完整搬至安装根旁的 `skill-install-backups/` 并接链接。这个选项只用于已确认的个人副本；Matt原版和归属不明副本继续保留。陌生链接拒绝覆盖；本包已有链接只替换链接本身。安装失败报告真实部分状态并保留恢复材料，不报告整机同步完成。
+
+## 材料读取与结构校验
+
+本包维护默认用工具反馈完成现场核验：inspect 的 installation 区分 symlink、directory_link（包括 Windows Junction）、copy 和缺项，给出实际与预期目标及内容 matches_source。安装完成须同时是链接、目标一致、内容匹配；普通副本内容相同也仍须按副本协议处理。复用此反馈，不另写仅认 symlink 的检查。
+
+读取证据先调用 `read --file '<实际文件>'`；JSON 默认只显示一级字段类型与数量，需具体内容时用 `--pointer '/sources/local-source/files'` 等实际键，空指针选根。文本及选中 JSON 每次默认 2000 字符，上限 6000；complete 只表示当前 view 输出完整，json_overview 不是原文。next_offset 非空时按需续读；同一内容的续读须保持 sha256 一致。read 的项数用于定位，文件摘要用于核续读来源；清单完整性另用已有快照、摘要机制或定向程序实际比对原件与清单，只返回统计、差异及证据位置，明细留在原文件。
+
+相对引用用 `read --file 'SKILL-MECHANICS.md' --relative-to '<引用它的实际 SKILL.md>'`，以引用文件所在目录解析。缺项会返回实际解析路径；按原引用补查，不自行插入目录层级。工具尚无这些动作的固定旧运行继续原版本：采用同样的字段筛选、限量读取和实际实现检查，不借新版管理进行中的旧运行。
+
+完整结构校验用 `structure --source '<候选包>' --validator '<本机 quick_validate.py>' --validation-python '<已有解释器>'`。两个路径按当前宿主核实；工具使用 Python UTF-8 模式，先检查该解释器能 import yaml，失败返回 environment_blocked 且不执行验证器，选择已有可用环境后继续。依赖就绪后逐技能返回退出码；validation_failed 与环境故障分开，输出截断按标记补取必要原始失败证据，不以包目录发现代替 YAML 校验。
 
 ## 新会话同步
 

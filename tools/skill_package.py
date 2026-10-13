@@ -107,6 +107,59 @@ def linked(path):
         return False
 
 
+def read_material(path, relative_to=None, offset=0, limit=2000, pointer=None):
+    """Bounded evidence view; relative references belong to their referring file."""
+    if offset < 0 or not 1 <= limit <= 6000:
+        raise PackageError("Read offset must be nonnegative; limit must be 1..6000 characters")
+    if relative_to is not None:
+        relative_to = relative_to.resolve()
+        if not relative_to.is_file():
+            raise PackageError(f"Referring file does not exist: {relative_to}")
+        path = relative_to.parent / path
+    path = path.resolve()
+    if not path.is_file():
+        raise PackageError(f"Material does not exist: {path}")
+    raw = path.read_bytes()
+    text = raw.decode("utf-8-sig")
+    view, items = "text", None
+    if path.suffix.lower() == ".json" or pointer is not None:
+        data = json.loads(text)
+        if pointer is None:
+            def shape(value):
+                result = {"type": type(value).__name__}
+                if isinstance(value, (dict, list)):
+                    result["items"] = len(value)
+                return result
+            data = {key: shape(value) for key, value in data.items()} if isinstance(data, dict) else shape(data)
+            view = "json_overview"
+        else:
+            if pointer and not pointer.startswith("/"):
+                raise PackageError("JSON pointer must be empty or start with /")
+            try:
+                for token in pointer.split("/")[1:] if pointer else []:
+                    token = token.replace("~1", "/").replace("~0", "~")
+                    if isinstance(data, list):
+                        if not re.fullmatch(r"0|[1-9][0-9]*", token):
+                            raise ValueError("Invalid array index")
+                        data = data[int(token)]
+                    elif isinstance(data, dict):
+                        data = data[token]
+                    else:
+                        raise ValueError("Pointer reaches a scalar")
+            except (KeyError, IndexError, ValueError) as error:
+                raise PackageError(f"JSON pointer not found: {pointer}") from error
+            view = "json_selection"
+            items = len(data) if isinstance(data, (dict, list)) else None
+        text = json.dumps(data, ensure_ascii=False, indent=2)
+    if offset > len(text):
+        raise PackageError("Read offset exceeds the selected view")
+    end = min(offset + limit, len(text))
+    return {"path": str(path), "size_bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(),
+            "view": view, "pointer": pointer, "items": items, "offset": offset,
+            "text": text[offset:end], "complete": end == len(text),
+            "next_offset": end if end < len(text) else None}
+
+
 def upstream_inputs(install_root, names):
     versions = {}
     for name in names:
@@ -236,9 +289,42 @@ class Package:
         return {"source": str(self.root), "head": git(self.root, "rev-parse", "HEAD").stdout.strip(),
                 "dirty": bool(git(self.root, "status", "--porcelain").stdout),
                 "skills": self.discover(), "pending": runs,
+                "installation": self.installation(install_root),
                 "upstream": {"versions": upstream, "changed": changed,
                              "status": "unverified" if not prior else "changed" if changed else "checked",
                              "confirmed_by_run": prior.get("confirmed_by_run")}}
+
+    def installation(self, install_root):
+        names = self.discover()
+        expected = upstream_inputs(self.skills_root, names)
+        actual = upstream_inputs(install_root, names)
+        entries = {}
+        for name in names:
+            entry = install_root / name
+            kind = ("symlink" if entry.is_symlink() else "directory_link" if linked(entry)
+                    else "copy" if entry.is_dir() else "file" if entry.exists() else "missing")
+            entries[name] = {"path": str(entry.absolute()), "kind": kind,
+                             "target": str(entry.resolve()),
+                             "expected_target": str((self.skills_root / name).resolve()),
+                             "matches_source": actual[name]["fingerprint"] == expected[name]["fingerprint"]}
+        return entries
+
+    def structure(self, validator, validation_python):
+        validator, validation_python = validator.resolve(), validation_python.resolve()
+        if not validator.is_file() or not validation_python.is_file():
+            raise PackageError(f"Structure check needs existing validator and interpreter: {validator}, {validation_python}")
+        probe = process([str(validation_python), "-X", "utf8", "-c", "import yaml"], timeout=30)
+        result = {"validator": str(validator), "python": str(validation_python), "checks": []}
+        if probe.returncode:
+            return dict(result, status="environment_blocked", dependency="yaml", exit_code=probe.returncode,
+                        output=(probe.stdout + probe.stderr)[:2000])
+        for name in self.discover():
+            check = process([str(validation_python), "-X", "utf8", str(validator), str(self.skills_root / name)], timeout=30)
+            output = check.stdout + check.stderr
+            result["checks"].append({"skill": name, "exit_code": check.returncode,
+                                     "output": output[:2000], "output_truncated": len(output) > 2000})
+        result["status"] = "verified" if all(check["exit_code"] == 0 for check in result["checks"]) else "validation_failed"
+        return result
 
     def prepare(self, run, existing_worktree=None, install_root=None):
         directory = self.run_path(run)
@@ -512,7 +598,7 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["inspect", "prepare", "verify", "publish", "resume", "sync"])
+    parser.add_argument("action", choices=["inspect", "read", "structure", "prepare", "verify", "publish", "resume", "sync"])
     parser.add_argument("--source", type=Path, default=Path(__file__).resolve().parent.parent)
     parser.add_argument("--run")
     parser.add_argument("--existing-worktree", type=Path)
@@ -520,10 +606,23 @@ def main():
     parser.add_argument("--reconcile-source", action="store_true")
     parser.add_argument("--adopt-copies", action="store_true")
     parser.add_argument("--checked-upstream", nargs="*", help="Dependencies whose saved contracts the agent evaluated")
+    parser.add_argument("--file", type=Path)
+    parser.add_argument("--relative-to", type=Path, help="Resolve --file against this referring file's directory")
+    parser.add_argument("--offset", type=int, default=0)
+    parser.add_argument("--limit", type=int, default=2000, help="Maximum 6000 characters per read view")
+    parser.add_argument("--pointer", help="JSON pointer; omit for overview, empty string selects the root")
+    parser.add_argument("--validator", type=Path)
+    parser.add_argument("--validation-python", type=Path)
     args = parser.parse_args()
     try:
+        if args.action == "read":
+            if args.file is None:
+                raise PackageError("read needs --file")
+            result = read_material(args.file, args.relative_to, args.offset, args.limit, args.pointer)
+            print(json.dumps(result, ensure_ascii=False))
+            return 0
         package = Package(args.source)
-        if args.action not in {"inspect", "sync"} and not args.run:
+        if args.action not in {"inspect", "structure", "sync"} and not args.run:
             raise PackageError("This action needs a run identifier")
         if args.run and args.action in {"verify", "publish", "resume", "sync"}:
             runtime = Path(package.load_run(args.run)[1]["runtime"]).resolve()
@@ -532,6 +631,10 @@ def main():
         with package.transaction():
             if args.action == "inspect":
                 result = package.inspect(args.install_root)
+            elif args.action == "structure":
+                if args.validator is None or args.validation_python is None:
+                    raise PackageError("structure needs --validator and --validation-python")
+                result = package.structure(args.validator, args.validation_python)
             elif args.action == "prepare":
                 result = package.prepare(args.run, args.existing_worktree, args.install_root)
             elif args.action == "sync":

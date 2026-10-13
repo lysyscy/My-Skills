@@ -102,6 +102,72 @@ class Transactions(unittest.TestCase):
         self.add_skill(self.source, "future-third")
         self.assertEqual(self.package.discover(), ["first", "future-third", "improve-workflow"])
 
+    def test_inspect_reports_actual_installation_links_and_copies(self):
+        self.install.mkdir(parents=True)
+        missing = self.package.inspect(self.install)["installation"]["first"]
+        self.assertEqual(missing["kind"], "missing")
+        source = self.source / "skills/first"
+        entry = self.install / "first"
+        manager.link_directory(source, entry)
+        report = self.package.inspect(self.install)["installation"]["first"]
+        self.assertIn(report["kind"], ("symlink", "directory_link"))
+        self.assertEqual(report["target"], str(source.resolve()))
+        self.assertTrue(report["matches_source"])
+        if entry.is_symlink():
+            entry.unlink()
+        else:
+            entry.rmdir()
+        shutil.copytree(source, entry)
+        copy = self.package.inspect(self.install)["installation"]["first"]
+        self.assertEqual(copy["kind"], "copy")
+        self.assertTrue(copy["matches_source"])
+        (entry / "SKILL.md").write_text("independent change", encoding="utf-8")
+        self.assertFalse(self.package.inspect(self.install)["installation"]["first"]["matches_source"])
+
+    def test_structure_missing_dependency_stops_before_validator(self):
+        validator = self.home / "quick_validate.py"
+        validator.write_text("raise AssertionError('must not run')", encoding="utf-8")
+        failed = subprocess.CompletedProcess([], 1, "", "ModuleNotFoundError: No module named 'yaml'")
+        with patch.object(manager, "process", return_value=failed) as calls:
+            result = self.package.structure(validator, Path(sys.executable))
+        self.assertEqual(result["status"], "environment_blocked")
+        self.assertEqual(result["dependency"], "yaml")
+        self.assertEqual(calls.call_count, 1)
+        self.assertEqual(result["checks"], [])
+
+    def test_structure_reports_validation_failure_separately(self):
+        validator = self.home / "quick_validate.py"
+        validator.write_text("# fixture", encoding="utf-8")
+        ready = subprocess.CompletedProcess([], 0, "", "")
+        failed = subprocess.CompletedProcess([], 1, "invalid frontmatter", "")
+        passed = subprocess.CompletedProcess([], 0, "Skill is valid!", "")
+        with patch.object(manager, "process", side_effect=[ready, failed, passed]):
+            result = self.package.structure(validator, Path(sys.executable))
+        self.assertEqual(result["status"], "validation_failed")
+        self.assertEqual([check["exit_code"] for check in result["checks"]], [1, 0])
+
+    def test_structure_uses_absolute_validator_and_all_discovered_skills(self):
+        validator = self.home / "quick_validate.py"
+        validator.write_text("# fixture", encoding="utf-8")
+        passed = subprocess.CompletedProcess([], 0, "Skill is valid!", "")
+        with patch.object(manager, "process", return_value=passed) as calls:
+            result = self.package.structure(validator, Path(sys.executable))
+        self.assertEqual(result["status"], "verified")
+        self.assertEqual(len(result["checks"]), 2)
+        self.assertEqual(calls.call_args_list[1].args[0][1:4], ["-X", "utf8", str(validator.resolve())])
+
+    def test_structure_reads_unicode_even_when_host_disables_utf8(self):
+        self.write("skills/first/SKILL.md", "---\nname: first\ndescription: 中文验证\n---\n")
+        validator = self.home / "验证器.py"
+        validator.write_text("import sys\nfrom pathlib import Path\n(Path(sys.argv[1])/'SKILL.md').read_text()\n", encoding="utf-8")
+        original = manager.process
+        def without_yaml_dependency(args, **kwargs):
+            if args[-1] == "import yaml":
+                return subprocess.CompletedProcess(args, 0, "", "")
+            return original(args, **kwargs)
+        with patch.dict(os.environ, {"PYTHONUTF8": "0"}), patch.object(manager, "process", side_effect=without_yaml_dependency):
+            self.assertEqual(self.package.structure(validator, Path(sys.executable))["status"], "verified")
+
     def test_upstream_and_path_escape_are_rejected(self):
         self.add_skill(self.source, "retro")
         with self.assertRaises(manager.PackageError):
@@ -392,6 +458,58 @@ class Transactions(unittest.TestCase):
         self.package.publish("upstream-two")
         self.package.sync(self.install, "upstream-two")
         self.assertEqual(self.package.inspect(self.install)["upstream"]["status"], "changed")
+
+
+class MaterialReading(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="skill-material-test-")
+        self.addCleanup(self.temp.cleanup)
+        self.home = Path(self.temp.name)
+
+    def test_large_manifest_has_bounded_overview_and_selected_window(self):
+        path = self.home / "manifest.json"
+        content = {"files": [{"path": f"目录/文件 {i}.md", "sha256": "a" * 64} for i in range(2000)]}
+        path.write_text(json.dumps(content, ensure_ascii=False), encoding="utf-8")
+        overview = manager.read_material(path)
+        self.assertEqual(overview["view"], "json_overview")
+        self.assertIn('"items": 2000', overview["text"])
+        self.assertLess(len(json.dumps(overview)), 4000)
+        selected = manager.read_material(path, pointer="/files", limit=100)
+        self.assertEqual(selected["items"], 2000)
+        self.assertFalse(selected["complete"])
+        self.assertEqual(selected["next_offset"], 100)
+        followup = manager.read_material(path, pointer="/files", offset=100, limit=100)
+        self.assertEqual(selected["text"] + followup["text"], json.dumps(content["files"], ensure_ascii=False, indent=2)[:200])
+
+    def test_relative_reference_uses_referring_file_not_working_directory(self):
+        folder = self.home / "技能目录"
+        folder.mkdir()
+        entry = folder / "SKILL.md"
+        entry.write_text("[reference](SKILL-MECHANICS.md)", encoding="utf-8")
+        reference = folder / "SKILL-MECHANICS.md"
+        reference.write_text("correct reference", encoding="utf-8")
+        result = manager.read_material(Path("SKILL-MECHANICS.md"), relative_to=entry)
+        self.assertEqual(result["path"], str(reference.resolve()))
+        self.assertEqual(result["text"], "correct reference")
+        with self.assertRaises(manager.PackageError):
+            manager.read_material(Path("references/SKILL-MECHANICS.md"), relative_to=entry)
+
+    def test_read_rejects_invalid_windows_and_supports_pointer_escaping(self):
+        path = self.home / "data.json"
+        path.write_text('{"a/b": {"~": "值"}}', encoding="utf-8")
+        self.assertEqual(manager.read_material(path, pointer="/a~1b/~0")["text"], '"值"')
+        for options in ({"limit": 0}, {"limit": 6001}, {"offset": -1}, {"pointer": "/missing"}):
+            with self.assertRaises(manager.PackageError):
+                manager.read_material(path, **options)
+
+    def test_read_cli_needs_no_run_or_git_repository(self):
+        path = self.home / "大文件.md"
+        path.write_text("字符" * 5000, encoding="utf-8")
+        result = manager.process([sys.executable, str(ROOT / "tools/skill_package.py"), "read", "--file", str(path), "--limit", "200"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        read = json.loads(result.stdout)
+        self.assertEqual(len(read["text"]), 200)
+        self.assertFalse(read["complete"])
 
 
 if __name__ == "__main__":

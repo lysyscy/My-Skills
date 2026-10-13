@@ -38,7 +38,7 @@ Status: living
 
 常规单批与复杂、跨批任务的路由正文回 implement-solo-spec 的“普通改动”；setup负责接入，不是每轮开发的前置。Agent文档稳定内容在前、变化内容在后，规则回文档维护约定，项目入口只引用。
 
-本仓行为回归运行 `python -m unittest discover -s tests -v`，结构核验使用本机 skill-creator 的验证器；行为回归用临时仓和安装夹具。修改管理工具时同时保留旧回归并核自修改路径。检查通过不代替真实使用效果或跨电脑已同步证明。`.gitattributes` 统一提交为 LF；`.gitignore` 排除环境、缓存和凭据。
+本仓行为回归运行 `python -m unittest discover -s tests -v`，结构核验经[包操作的 structure 入口](skills/improve-workflow/references/package-operations.md#材料读取与结构校验)调用本机 skill-creator 的验证器；行为回归用临时仓和安装夹具。修改管理工具时同时保留旧回归并核自修改路径。检查通过不代替真实使用效果或跨电脑已同步证明。`.gitattributes` 统一提交为 LF；`.gitignore` 排除环境、缓存和凭据。
 
 ## 安装现场与试跑记录
 
