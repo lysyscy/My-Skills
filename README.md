@@ -8,6 +8,7 @@ Status: living
 
 ## 当前入口
 
+- [improve-workflow](skills/improve-workflow/SKILL.md)：说“复盘并优化个人工作流”，复用 Matt retro，维护整个个人包、未来技能和入口自身，验证后自动发布并同步本机。只要求分析时保持只读。
 - [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：已确认的个人实施、动态分派、模型限制、验证策略与评审节奏。执行规则只在这里维护。
 - `skills/implement-solo-spec/agents/openai.yaml`：保留显式调用策略，随技能源维护。
 - [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：个人基础约定接入技能，复用 Matt 配置与项目现有入口；历史试跑见下文，长期效果仍待观察。
@@ -27,9 +28,21 @@ Status: living
 
 隔离演练已覆盖 Matt 配置后的新项目接入、老项目重复接入及普通需求修订。新项目建立读取入口与后续资料落点，没有提前创建空规格、词汇表、ADR、票或测试；老项目保留现有票源和历史，普通执行者能够自行同步需求、待办与当前票。演练曾发现待办复制业务规则的问题，明确引用格式后复测：业务定义在权威处更新，活待办只保留引用、状态与下一步，旧任务范围与历史记录保留。这些结果验证了演练场景中的入口与行为，尚未证明长期维护效果或速度、token 收益。
 
+## 仓库维护与同步
+
+远端为 [lysyscy/My-Skills](https://github.com/lysyscy/My-Skills)，各电脑稳定 `main` 提供技能安装源。包策略在 [skill-package.json](skill-package.json)；[包操作](skills/improve-workflow/references/package-operations.md) 与 [管理工具](tools/skill_package.py) 负责检查、隔离准备、验证、发布及同步，按 `skills/` 的实际技能目录发现对象，无须逐项登记。Matt 上游保持独立。
+
+每轮优化在独立 `codex/` 分支和 worktree 完成，任一宿主都可按已确认授权发布；主线前进时整合和复验，普通推送不覆盖其他发布。已采用的任务保持固定执行版本，新版从下一轮启用。运行与执行快照在 Git common dir 的 `workflow-state/`，安装副本备份在技能发现目录之外，未完成状态可接续。
+
+新任务首次使用个人方法时按包操作检查、同步稳定源一次，再读取所需技能；dirty先保护并比较增量，不能整份旧文件覆盖新版。安装入口链接到本机实际稳定源，新增技能同步时自动接入。换机首次需读取远端最新维护入口，已有任务可说“按最新个人工作流维护入口，保护并接续这次技能优化”。其他电脑未实际同步时保持未核实。
+
+常规单批与复杂、跨批任务的路由正文回 implement-solo-spec 的“普通改动”；setup负责接入，不是每轮开发的前置。Agent文档稳定内容在前、变化内容在后，规则回文档维护约定，项目入口只引用。
+
+本仓行为回归运行 `python -m unittest discover -s tests -v`，结构核验使用本机 skill-creator 的验证器；行为回归用临时仓和安装夹具。修改管理工具时同时保留旧回归并核自修改路径。检查通过不代替真实使用效果或跨电脑已同步证明。`.gitattributes` 统一提交为 LF；`.gitignore` 排除环境、缓存和凭据。
+
 ## 安装现场与试跑记录
 
-2026-10-13 当前宿主核实：两个用户级技能目录 `C:/Users/Administrator/.agents/skills/setup-solo-workflow`、`C:/Users/Administrator/.agents/skills/implement-solo-spec` 均为 junction，分别指向 `D:/dev/My-Skills/skills/` 下同名目录；实际技能内容与引用可达，个人维护源只有本仓这一份。原安装副本保留在 `C:/Users/Administrator/.agents/skill-install-backups/20261013-mtrl320`，仅供恢复。其他宿主仍须查实际链接、内容和引用，不能凭本记录认定已安装。
+2026-10-13 首次接入核实：当时两个用户级技能目录 `C:/Users/Administrator/.agents/skills/setup-solo-workflow`、`C:/Users/Administrator/.agents/skills/implement-solo-spec` 均为 junction，分别指向 `D:/dev/My-Skills/skills/` 下同名目录；实际技能内容与引用可达，个人维护源只有本仓这一份。原安装副本保留在 `C:/Users/Administrator/.agents/skill-install-backups/20261013-mtrl320`，仅供恢复。其他宿主仍须查实际链接、内容和引用，不能凭本记录认定已安装。
 
 历史记录：此前已接入 tutoring-scheduler，并结合 screen-honesty 收尾补齐完成状态核对、接入保存状态与临时现场处置；当轮记录为项目接入改动已写工作区、尚未提交，功能收尾、部署及归档分别保存。此前 setup-solo-workflow 通过独立环境 `C:/Users/Administrator/.agents/skill-validation-venv/Scripts/python.exe`（PyYAML 6.0.3）的 `quick_validate.py` 校验。本轮未重新验证这些项目、环境或保存状态。
 
@@ -42,11 +55,3 @@ Status: living
 2026-10-13 后续真实试跑为 mtrl-workbench 的 TAIL-321 归档工具修复：一次完整双轴审查后又有三次聚焦复查，既检出真实恢复问题，也暴露了关闭责任不清和无发现轴被再次唤醒的成本。按本轮评估收紧为实现者批量修复自验、主 Agent 核证据并关闭，具体未决或未覆盖影响才追加对应审查；规则正文只在 implement-solo-spec 维护。同步明确读取停止条件、最终稳定状态验证和最少收尾记录。保留完整最终审查、隔离与有效回归、失败归因、项目授权和个人模型上限。本轮保持技能名称、输入范围及显式调用策略，本机 Matt 原版不动；没有实施通用入口改造。两项技能结构与引用检查通过，独立Agent gpt-6.1-sol/medium的七情景决策验证符合关闭、追加审查、授权批次、失败处理、证据复用及最少回执规则；这是只读决策演练，不证明真实运行遵循率或长期成本收益。
 
 在新任务中显式调用 `$implement-solo-spec` 并提供规格与票入口；只在用户明确采用时启用，既有任务继续原授权。此前六类场景的指令核对、setup 收尾试跑及样本项目重复方法收敛均为历史证据，不能代替新项目行为验证。提交、发布与部署按每个项目当前授权执行。
-
-## 仓库维护
-
-远端为 [lysyscy/My-Skills](https://github.com/lysyscy/My-Skills)，本地 `main` 跟踪 `origin/main`。本目录是技能维护源；用户级链接读取这里，更新技能无需复制到安装目录。
-
-修改后核对差异、运行相关技能校验，再提交并推送到远端。引入远端改动前先核工作区；有本地未提交工作时先妥善保存，再运行 `git pull --ff-only`。`.gitattributes` 统一提交为 LF；`.gitignore` 排除本地环境、缓存和凭据文件。
-
-换机器时克隆本仓库，并将两个用户级技能目录链接到新机器的实际克隆路径；README 中的本机路径用于说明现有现场，不自动配置其他机器。
