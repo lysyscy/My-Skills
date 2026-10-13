@@ -160,7 +160,19 @@ def read_material(path, relative_to=None, offset=0, limit=2000, pointer=None):
             "next_offset": end if end < len(text) else None}
 
 
-def upstream_inputs(install_root, names):
+def resource_bytes(path, content, normalize_text=False):
+    if normalize_text and Path(path).suffix.lower() in {".md", ".yaml", ".yml", ".json", ".txt", ".py", ".toml", ".ps1", ".sh"}:
+        if any(byte < 32 and byte not in (9, 10, 13) or byte == 127 for byte in content):
+            return content
+        try:
+            content.decode("utf-8")
+        except UnicodeDecodeError:
+            return content
+        return content.replace(b"\r\n", b"\n")
+    return content
+
+
+def upstream_inputs(install_root, names, normalize_text=False):
     versions = {}
     for name in names:
         directory = install_root / name
@@ -168,19 +180,27 @@ def upstream_inputs(install_root, names):
             versions[name] = {"path": None, "fingerprint": None}
             continue
         value = hashlib.sha256()
+        resources = []
         for current, folders, filenames in os.walk(directory, followlinks=False):
             folders[:] = sorted(folder for folder in folders if folder not in {".git", "__pycache__", "node_modules", ".venv"})
             for filename in sorted(filenames):
                 if filename.startswith(".env") or filename.endswith((".pyc", ".pyo")):
                     continue
                 path = Path(current) / filename
-                value.update(path.relative_to(directory).as_posix().encode("utf-8") + b"\0" + path.read_bytes())
+                resources.append((path.relative_to(directory).as_posix(), path))
+        for relative, path in sorted(resources) if normalize_text else resources:
+            value.update(relative.encode("utf-8") + b"\0" + resource_bytes(path, path.read_bytes(), normalize_text))
         versions[name] = {"path": str(directory.resolve()), "fingerprint": value.hexdigest()}
     return versions
 
 
 def link_directory(source, target):
     if os.name == "nt":
+        try:
+            target.symlink_to(source, target_is_directory=True)
+            return
+        except OSError:
+            pass  # Ordinary Windows accounts still use the existing Junction path.
         # Arguments travel through environment, never interpolated shell code.
         env = dict(os.environ, SKILL_LINK_SOURCE=str(source), SKILL_LINK_TARGET=str(target))
         result = process(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
@@ -325,8 +345,8 @@ class Package:
 
     def installation(self, install_root, manager_owned=False):
         names = self.discover()
-        expected = upstream_inputs(self.skills_root, names)
-        actual = upstream_inputs(install_root, names)
+        expected = upstream_inputs(self.skills_root, names, normalize_text=manager_owned)
+        actual = upstream_inputs(install_root, names, normalize_text=manager_owned)
         entries = {}
         for name in names:
             entry = install_root / name
@@ -466,7 +486,7 @@ class Package:
         state.update(status="verifying", verified_digest=None)
         self.save_run(directory, state)
         for index, command in enumerate(commands):
-            result = process(command, cwd=worktree, env=env, timeout=300)
+            result = process(command, cwd=worktree, env=env, timeout=900)
             log = directory / f"check-{index}.log"
             log.write_text(result.stdout + result.stderr, encoding="utf-8")
             checks.append({"command": command, "exit_code": result.returncode, "log": str(log)})
@@ -631,6 +651,158 @@ class Package:
             self.save_run(directory, state)
         return {"status": "synced", "commit": latest, "source": str(primary), "installed": installed}
 
+    def manager_source(self, record, library, metadata_root, name):
+        entry = library / name
+        if not record or Path(record["path"]).resolve() != entry.resolve():
+            raise PackageError(f"Skills Manager does not own the expected library entry: {name}")
+        reference = record.get("source_ref", "").rstrip("/").removesuffix(".git")
+        remote = self.policy["remote"].rstrip("/").removesuffix(".git")
+        local_source = record.get("source_type") == "local" and Path(reference).resolve() == (self.skills_root / name).resolve()
+        skill_reference = f"{remote}/tree/{self.policy['branch']}/{Path(self.policy['skills_root']).as_posix()}/{name}"
+        if not local_source and (record.get("source_type") != "git" or reference not in {remote, skill_reference}):
+            raise PackageError(f"Skills Manager source differs from the maintenance source: {name}")
+        metadata_path = contained(metadata_root, record["id"] + ".json")
+        if not metadata_path.is_file():
+            raise PackageError(f"Skills Manager source metadata is missing: {name}")
+        metadata = read_json(metadata_path)
+        source = metadata.get("source", {})
+        if (metadata.get("skill_id") != record["id"] or metadata.get("path") != name
+                or source.get("type") != record.get("source_type")
+                or source.get("ref") != record.get("source_ref")):
+            raise PackageError(f"Skills Manager source metadata disagrees with the registry: {name}")
+        if not local_source:
+            subpath = str(source.get("subpath", "")).replace("\\", "/").strip("/")
+            if subpath != (Path(self.policy["skills_root"]) / name).as_posix():
+                raise PackageError(f"Skills Manager source subpath differs: {name}")
+            branch = source.get("branch")
+            if branch is None:
+                remote_head = git(self.root, "ls-remote", "--symref", self.policy["remote"], "HEAD").stdout
+                match = re.search(r"(?m)^ref: refs/heads/(.+)\tHEAD$", remote_head)
+                if not match:
+                    raise PackageError("Cannot verify the default branch used by Skills Manager")
+                branch = match[1]
+            if branch != self.policy["branch"]:
+                raise PackageError(f"Skills Manager source branch differs: {name}")
+
+    def known_skill_version(self, name, fingerprint):
+        """Accept only complete committed versions before a wholesale manager update."""
+        prefix = (Path(self.policy["skills_root"]) / name).as_posix() + "/"
+        revisions = git(self.root, "rev-list", "HEAD", "--", prefix).stdout.splitlines()
+        for revision in revisions:
+            tree = git(self.root, "ls-tree", "-r", "-z", revision, "--", prefix).stdout
+            resources = []
+            for row in filter(None, tree.split("\0")):
+                header, path = row.split("\t", 1)
+                mode, kind, object_id = header.split()
+                if mode not in {"100644", "100755"} or kind != "blob":
+                    raise PackageError(f"Linked or unsupported committed skill resource: {path}")
+                relative = path.removeprefix(prefix)
+                if any(part in {".git", "__pycache__", "node_modules", ".venv"} for part in Path(relative).parts[:-1]) or Path(relative).name.startswith(".env") or relative.endswith((".pyc", ".pyo")):
+                    continue
+                blob = subprocess.run(["git", "-C", str(self.root), "cat-file", "blob", object_id],
+                                      capture_output=True, timeout=120)
+                if blob.returncode:
+                    raise PackageError(f"Cannot read committed skill resource: {path}")
+                resources.append((relative, blob.stdout))
+            value = hashlib.sha256()
+            for relative, content in sorted(resources):
+                value.update(relative.encode("utf-8") + b"\0" + resource_bytes(relative, content, True))
+            if value.hexdigest() == fingerprint:
+                return True
+        return False
+
+    def sync_manager(self, cli, run=None, reconcile_source=False, deploy_new_to=()):
+        repository = manager_json(cli, "repo", "status")
+        library = Path(repository["skills_dir"])
+        synchronized = self.sync(library, run, reconcile_source, source_only=True)
+        stable = Package(Path(synchronized["source"]))
+        records = {record["name"]: record for record in manager_json(cli, "skills", "list")}
+        agents = {agent["key"]: agent for agent in manager_json(cli, "agents", "list")}
+        for key in deploy_new_to:
+            if key not in agents or not agents[key].get("skills_dir"):
+                raise PackageError(f"Unknown new-skill deployment agent: {key}")
+        names = stable.discover()
+        expected = upstream_inputs(stable.skills_root, names, normalize_text=True)
+        actual = upstream_inputs(library, names, normalize_text=True)
+        metadata_root = Path(repository["metadata_dir"]) / "skills"
+        directory, state = self.load_run(run) if run else (None, None)
+        intent_path = self.state_root / "pending-manager-deployments.json"
+        if state:
+            intents = state.get("manager_new_deployments", {})
+        elif intent_path.exists():
+            pending = read_json(intent_path)
+            if Path(pending["library"]).resolve() != library.resolve():
+                raise PackageError("Pending deployment intent belongs to another manager library")
+            intents = pending["skills"]
+        else:
+            intents = {}
+        for name in names:
+            if name not in records:
+                intents.setdefault(name, list(deploy_new_to))
+        if intents:
+            if state:
+                state["manager_new_deployments"] = intents
+                self.save_run(directory, state)
+            else:
+                write_json(intent_path, {"library": str(library.resolve()), "skills": intents})
+        # Preflight the whole batch before changing the shared central library.
+        for name in names:
+            if name in records:
+                stable.manager_source(records[name], library, metadata_root, name)
+                if not stable.known_skill_version(name, actual[name]["fingerprint"]):
+                    raise PackageError(f"Uncommitted manager library changes preserved: {name}; compare and migrate them before updating")
+                for key in records[name].get("deployed_to", []):
+                    if key not in agents or not agents[key].get("skills_dir"):
+                        raise PackageError(f"Unknown managed deployment agent: {key}")
+                    root = Path(agents[key]["skills_dir"])
+                    target = root / name
+                    if linked(target) and target.resolve() != (library / name).resolve():
+                        raise PackageError(f"Foreign managed deployment link preserved: {key}/{name}")
+                    fingerprint = upstream_inputs(root, [name], normalize_text=True)[name]["fingerprint"]
+                    if fingerprint is not None and not stable.known_skill_version(name, fingerprint):
+                        raise PackageError(f"Uncommitted Agent deployment changes preserved: {key}/{name}")
+            elif (library / name).exists() or linked(library / name):
+                raise PackageError(f"Unmanaged library entry preserved: {name}")
+        for name in names:
+            record = records.get(name)
+            if record:
+                if actual[name]["fingerprint"] != expected[name]["fingerprint"]:
+                    manager_json(cli, "skills", "check", record["id"])
+                    result = manager_json(cli, "skills", "update", record["id"])
+                    reports = result if isinstance(result, list) else [result]
+                    held = [path for report in reports for path in report.get("held_back_removals", [])]
+                    if held:
+                        raise PackageError(f"Skills Manager held back removals for {name}: {held}; installation remains pending")
+                selected = tuple(sorted(set(record.get("deployed_to", [])) | set(intents.get(name, []))))
+            else:
+                reference = f"{stable.policy['remote'].removesuffix('.git')}/tree/{stable.policy['branch']}/{Path(stable.policy['skills_root']).as_posix()}/{name}"
+                manager_json(cli, "skills", "install", reference, "--git")
+                selected = tuple(intents.get(name, []))
+            if selected:
+                args = ["skills", "deploy", name]
+                for key in selected:
+                    args.extend(("--agent", key))
+                manager_json(cli, *args, "--dry-run")
+                manager_json(cli, *args)
+        updated = {record["name"]: record for record in manager_json(cli, "skills", "list")}
+        for name, previous in records.items():
+            if name in names:
+                current = updated.get(name, {})
+                if (current.get("id") != previous["id"] or set(current.get("deployed_to", [])) != set(previous.get("deployed_to", [])) | set(intents.get(name, []))
+                        or set(current.get("preset_ids", [])) != set(previous.get("preset_ids", [])) or set(current.get("tags", [])) != set(previous.get("tags", []))):
+                    raise PackageError(f"Skills Manager changed existing identity or deployment choices: {name}")
+        for name, selected in intents.items():
+            if name not in names or not set(selected).issubset(updated.get(name, {}).get("deployed_to", [])):
+                raise PackageError(f"New skill deployment intent remains pending: {name}")
+        result = stable.confirm_install(cli, run)
+        if state:
+            directory, completed = self.load_run(run)
+            completed.pop("manager_new_deployments", None)
+            self.save_run(directory, completed)
+        elif intent_path.exists():
+            intent_path.unlink()
+        return result
+
     def confirm_install(self, cli, run=None):
         """Acknowledge manager-owned files only after inspecting the real library and deployments."""
         directory, state = self.load_run(run) if run else (None, None)
@@ -648,46 +820,13 @@ class Package:
         records = {record["name"]: record for record in manager_json(cli, "skills", "list")}
         agents = {agent["key"]: agent for agent in manager_json(cli, "agents", "list")}
         names = self.discover()
-        expected = upstream_inputs(self.skills_root, names)
-        actual = upstream_inputs(library, names)
+        expected = upstream_inputs(self.skills_root, names, normalize_text=True)
+        actual = upstream_inputs(library, names, normalize_text=True)
         deployments = {}
-        default_branch = None
         for name in names:
             record = records.get(name)
             entry = library / name
-            if not record or Path(record["path"]).resolve() != entry.resolve():
-                raise PackageError(f"Skills Manager does not own the expected library entry: {name}")
-            reference = record.get("source_ref", "").rstrip("/").removesuffix(".git")
-            remote = self.policy["remote"].rstrip("/").removesuffix(".git")
-            local_source = record.get("source_type") == "local" and Path(reference).resolve() == (self.skills_root / name).resolve()
-            skill_reference = f"{remote}/tree/{self.policy['branch']}/{Path(self.policy['skills_root']).as_posix()}/{name}"
-            if not local_source and reference not in {remote, skill_reference}:
-                raise PackageError(f"Skills Manager source differs from the maintenance source: {name}")
-            metadata_path = contained(metadata_root, record["id"] + ".json")
-            if not metadata_path.is_file():
-                raise PackageError(f"Skills Manager source metadata is missing: {name}")
-            metadata = read_json(metadata_path)
-            source = metadata.get("source", {})
-            if (metadata.get("skill_id") != record["id"] or metadata.get("path") != name
-                    or source.get("type") != record.get("source_type")
-                    or source.get("ref") != record.get("source_ref")):
-                raise PackageError(f"Skills Manager source metadata disagrees with the registry: {name}")
-            if not local_source:
-                subpath = str(source.get("subpath", "")).replace("\\", "/").strip("/")
-                expected_subpath = (Path(self.policy["skills_root"]) / name).as_posix()
-                if subpath != expected_subpath:
-                    raise PackageError(f"Skills Manager source subpath differs: {name}")
-                branch = source.get("branch")
-                if branch is None:
-                    if default_branch is None:
-                        remote_head = git(self.root, "ls-remote", "--symref", self.policy["remote"], "HEAD").stdout
-                        match = re.search(r"(?m)^ref: refs/heads/(.+)\tHEAD$", remote_head)
-                        if not match:
-                            raise PackageError("Cannot verify the default branch used by Skills Manager")
-                        default_branch = match[1]
-                    branch = default_branch
-                if branch != self.policy["branch"]:
-                    raise PackageError(f"Skills Manager source branch differs: {name}")
+            self.manager_source(record, library, metadata_root, name)
             if actual[name]["fingerprint"] != expected[name]["fingerprint"]:
                 raise PackageError(f"Manager library is missing or differs from the maintenance source: {name}")
             deployments[name] = []
@@ -696,10 +835,21 @@ class Package:
                     raise PackageError(f"Unknown managed deployment agent: {key}")
                 root = Path(agents[key]["skills_dir"])
                 target = root / name
-                fingerprint = upstream_inputs(root, [name])[name]["fingerprint"]
+                fingerprint = upstream_inputs(root, [name], normalize_text=True)[name]["fingerprint"]
                 if fingerprint != expected[name]["fingerprint"] or (linked(target) and target.resolve() != entry.resolve()):
                     raise PackageError(f"Managed deployment is missing, stale or points elsewhere: {key}/{name}")
                 deployments[name].append(key)
+        intents = state.get("manager_new_deployments", {}) if state else {}
+        intent_path = self.state_root / "pending-manager-deployments.json"
+        if intent_path.exists():
+            pending = read_json(intent_path)
+            if Path(pending["library"]).resolve() == library.resolve():
+                for name, selected in pending["skills"].items():
+                    intents = dict(intents)
+                    intents[name] = sorted(set(intents.get(name, [])) | set(selected))
+        for name, selected in intents.items():
+            if name not in deployments or not set(selected).issubset(deployments[name]):
+                raise PackageError(f"New skill deployment intent remains pending: {name}")
         if state:
             state.update(status="synced", synced=head, installed=names, deployments=deployments,
                          installation_manager="skills-manager")
@@ -723,12 +873,13 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["inspect", "read", "structure", "prepare", "verify", "publish", "resume", "sync", "confirm-install"])
+    parser.add_argument("action", choices=["inspect", "read", "structure", "prepare", "verify", "publish", "resume", "sync", "sync-manager", "confirm-install"])
     parser.add_argument("--source", type=Path, default=Path(__file__).resolve().parent.parent)
     parser.add_argument("--run")
     parser.add_argument("--existing-worktree", type=Path)
     parser.add_argument("--install-root", type=Path, default=Path.home() / ".skills-manager" / "skills")
     parser.add_argument("--skills-manager-cli", type=Path, help="Resolved Skills Manager CLI for confirmation")
+    parser.add_argument("--deploy-new-to", action="append", default=[], help="Explicit Agent for newly installed skills; repeat for multiple Agents")
     parser.add_argument("--reconcile-source", action="store_true")
     parser.add_argument("--adopt-copies", action="store_true")
     parser.add_argument("--checked-upstream", nargs="*", help="Dependencies whose saved contracts the agent evaluated")
@@ -748,9 +899,9 @@ def main():
             print(json.dumps(result, ensure_ascii=False))
             return 0
         package = Package(args.source)
-        if args.action not in {"inspect", "structure", "sync", "confirm-install"} and not args.run:
+        if args.action not in {"inspect", "structure", "sync", "sync-manager", "confirm-install"} and not args.run:
             raise PackageError("This action needs a run identifier")
-        if args.run and args.action in {"verify", "publish", "resume", "sync"}:
+        if args.run and args.action in {"verify", "publish", "resume", "sync", "sync-manager"}:
             runtime = Path(package.load_run(args.run)[1]["runtime"]).resolve()
             if Path(__file__).resolve() != runtime:
                 raise PackageError(f"Use the pinned execution tool for this run: {runtime}")
@@ -769,6 +920,9 @@ def main():
                 result = package.sync(args.install_root, args.run, args.reconcile_source, source_only=True)
             elif args.action == "confirm-install":
                 result = package.confirm_install(args.skills_manager_cli or skills_manager_cli(), args.run)
+            elif args.action == "sync-manager":
+                result = package.sync_manager(args.skills_manager_cli or skills_manager_cli(), args.run,
+                                              args.reconcile_source, args.deploy_new_to)
             elif args.action == "verify":
                 result = package.verify(args.run, args.checked_upstream)
             else:
