@@ -102,6 +102,106 @@ class Transactions(unittest.TestCase):
         self.add_skill(self.source, "future-third")
         self.assertEqual(self.package.discover(), ["first", "future-third", "improve-workflow"])
 
+    def managed_fixture(self):
+        library = self.home / "manager" / "skills"
+        agents = self.home / "agent" / "skills"
+        library.mkdir(parents=True)
+        agents.mkdir(parents=True)
+        metadata_root = self.home / "manager" / "metadata"
+        (metadata_root / "skills").mkdir(parents=True)
+        records = []
+        for name in self.package.discover():
+            shutil.copytree(self.source / "skills" / name, library / name)
+            manager.link_directory(library / name, agents / name)
+            records.append({"id": name, "name": name, "path": str(library / name), "source_type": "git",
+                            "source_ref": self.package.policy["remote"], "deployed_to": ["fixture"]})
+            (metadata_root / "skills" / (name + ".json")).write_text(json.dumps({
+                "skill_id": name, "path": name, "source": {"type": "git", "ref": self.package.policy["remote"],
+                "subpath": "skills\\" + name, "branch": None}}), encoding="utf-8")
+        def response(cli, *args):
+            return {("repo", "status"): {"skills_dir": str(library), "metadata_dir": str(metadata_root)},
+                    ("skills", "list"): records,
+                    ("agents", "list"): [{"key": "fixture", "skills_dir": str(agents)}]}[args]
+        return library, agents, response
+
+    def test_source_only_sync_never_writes_installation(self):
+        self.install.mkdir(parents=True)
+        marker = self.install / "keep.txt"
+        marker.write_text("manager owned")
+        result = self.package.sync(self.install, source_only=True)
+        self.assertEqual(result["status"], "source_synced")
+        self.assertEqual(list(self.install.iterdir()), [marker])
+        self.assertEqual(marker.read_text(), "manager owned")
+
+    def test_cli_sync_uses_source_only_even_when_install_root_is_given(self):
+        result = subprocess.run([sys.executable, str(ROOT / "tools/skill_package.py"), "sync",
+                                 "--source", str(self.source), "--install-root", str(self.install)],
+                                capture_output=True, text=True, encoding="utf-8")
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertEqual(json.loads(result.stdout)["status"], "source_synced")
+        self.assertFalse(self.install.exists())
+
+    def test_confirm_manager_library_and_actual_agent_links(self):
+        library, agents, response = self.managed_fixture()
+        with patch.object(manager, "manager_json", side_effect=response):
+            result = self.package.confirm_install("fixture-cli")
+        self.assertEqual(result["installation_manager"], "skills-manager")
+        self.assertEqual(result["deployments"]["first"], ["fixture"])
+        report = self.package.inspect(library, manager_owned=True)
+        self.assertEqual(report["installation"]["first"]["expected_target"], str(library / "first"))
+        self.assertTrue(report["installation"]["first"]["matches_source"])
+        (library / "first/SKILL.md").write_text("stale")
+        with patch.object(manager, "manager_json", side_effect=response), self.assertRaisesRegex(manager.PackageError, "differs"):
+            self.package.confirm_install("fixture-cli")
+
+    def test_confirm_does_not_trust_deployment_metadata_without_files(self):
+        library, agents, response = self.managed_fixture()
+        target = agents / "first"
+        if target.is_symlink():
+            target.unlink()
+        else:
+            target.rmdir()
+        with patch.object(manager, "manager_json", side_effect=response), self.assertRaisesRegex(manager.PackageError, "deployment"):
+            self.package.confirm_install("fixture-cli")
+
+    def test_source_sync_keeps_run_pending_until_manager_confirmation(self):
+        self.candidate()
+        self.package.publish("trial")
+        self.package.sync(self.install, "trial", source_only=True)
+        self.assertEqual(self.package.load_run("trial")[1]["status"], "source_synced")
+        self.assertTrue(self.package.inspect(self.install)["pending"])
+        library, agents, response = self.managed_fixture()
+        with patch.object(manager, "manager_json", side_effect=response):
+            self.package.confirm_install("fixture-cli", "trial")
+        self.assertEqual(self.package.load_run("trial")[1]["status"], "synced")
+
+    def test_invalid_manager_source_and_errors_cannot_close_run(self):
+        library, agents, response = self.managed_fixture()
+        records = response("fixture", "skills", "list")
+        records[0]["source_ref"] = "https://example.invalid/other"
+        with patch.object(manager, "manager_json", side_effect=response), self.assertRaisesRegex(manager.PackageError, "source differs"):
+            self.package.confirm_install("fixture-cli")
+        remote_reference = self.package.policy["remote"].removesuffix(".git")
+        for suffix in ("/tree/other/skills/first", "/tree/main/skills/other"):
+            records[0]["source_ref"] = remote_reference + suffix
+            with patch.object(manager, "manager_json", side_effect=response), self.assertRaisesRegex(manager.PackageError, "source differs"):
+                self.package.confirm_install("fixture-cli")
+        records[0]["source_ref"] = remote_reference + "/tree/main/skills/first"
+        metadata_path = Path(response("fixture", "repo", "status")["metadata_dir"]) / "skills/first.json"
+        metadata = manager.read_json(metadata_path)
+        metadata["source"]["ref"] = records[0]["source_ref"]
+        manager.write_json(metadata_path, metadata)
+        with patch.object(manager, "manager_json", side_effect=response):
+            self.assertEqual(self.package.confirm_install("fixture-cli")["status"], "synced")
+        for field, value in (("subpath", "skills/other"), ("branch", "other")):
+            modified = json.loads(json.dumps(metadata))
+            modified["source"][field] = value
+            manager.write_json(metadata_path, modified)
+            with patch.object(manager, "manager_json", side_effect=response), self.assertRaisesRegex(manager.PackageError, "source " + field):
+                self.package.confirm_install("fixture-cli")
+        with patch.object(manager, "process", return_value=subprocess.CompletedProcess([], 1, "", "refused")), self.assertRaisesRegex(manager.PackageError, "refused"):
+            manager.manager_json("fixture", "skills", "list")
+
     def test_inspect_reports_actual_installation_links_and_copies(self):
         self.install.mkdir(parents=True)
         missing = self.package.inspect(self.install)["installation"]["first"]

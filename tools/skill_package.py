@@ -193,6 +193,34 @@ def link_directory(source, target):
         target.symlink_to(source, target_is_directory=True)
 
 
+def skills_manager_cli():
+    """Use the stamped desktop bridge; never fall back from a broken bridge."""
+    directory = Path.home() / ".skills-manager" / "bin"
+    binary = directory / ("skills-manager-cli.exe" if os.name == "nt" else "skills-manager-cli")
+    stamp = directory / ".version"
+    if binary.exists() or stamp.exists():
+        if not binary.is_file() or not binary.stat().st_size or not stamp.is_file() or not stamp.stat().st_size:
+            raise PackageError("Skills Manager bridge is incomplete; open Skills Manager to republish it")
+        return str(binary)
+    found = shutil.which("skills-manager-cli")
+    if not found:
+        raise PackageError("Skills Manager CLI is unavailable; installation remains pending")
+    return found
+
+
+def manager_json(cli, *args):
+    result = process([str(cli), "--json", *args])
+    if result.returncode:
+        raise PackageError(result.stderr.strip() or result.stdout.strip() or "Skills Manager failed")
+    try:
+        value = json.loads(result.stdout)
+    except ValueError as error:
+        raise PackageError("Skills Manager returned invalid JSON") from error
+    if isinstance(value, dict) and value.get("ok") is False:
+        raise PackageError(value.get("message", "Skills Manager refused the operation"))
+    return value
+
+
 class Package:
     def __init__(self, root):
         self.root = Path(git(Path(root).resolve(), "rev-parse", "--show-toplevel").stdout.strip())
@@ -272,7 +300,7 @@ class Package:
         git(self.root, "fetch", "origin", self.policy["branch"])
         return git(self.root, "rev-parse", f"refs/remotes/origin/{self.policy['branch']}").stdout.strip()
 
-    def inspect(self, install_root):
+    def inspect(self, install_root, manager_owned=False):
         self.discover()
         runs = []
         for state_path in sorted((self.state_root / "runs").glob("*/state.json")):
@@ -289,12 +317,13 @@ class Package:
         return {"source": str(self.root), "head": git(self.root, "rev-parse", "HEAD").stdout.strip(),
                 "dirty": bool(git(self.root, "status", "--porcelain").stdout),
                 "skills": self.discover(), "pending": runs,
-                "installation": self.installation(install_root),
+                "installation": self.installation(install_root, manager_owned),
+                "installation_manager": "skills-manager" if manager_owned else "legacy-source-links",
                 "upstream": {"versions": upstream, "changed": changed,
                              "status": "unverified" if not prior else "changed" if changed else "checked",
                              "confirmed_by_run": prior.get("confirmed_by_run")}}
 
-    def installation(self, install_root):
+    def installation(self, install_root, manager_owned=False):
         names = self.discover()
         expected = upstream_inputs(self.skills_root, names)
         actual = upstream_inputs(install_root, names)
@@ -305,7 +334,8 @@ class Package:
                     else "copy" if entry.is_dir() else "file" if entry.exists() else "missing")
             entries[name] = {"path": str(entry.absolute()), "kind": kind,
                              "target": str(entry.resolve()),
-                             "expected_target": str((self.skills_root / name).resolve()),
+                             "expected_target": str(entry.absolute() if manager_owned else (self.skills_root / name).resolve()),
+                             "source": str((self.skills_root / name).resolve()),
                              "matches_source": actual[name]["fingerprint"] == expected[name]["fingerprint"]}
         return entries
 
@@ -500,7 +530,7 @@ class Package:
         self.save_run(directory, state)
         return state
 
-    def sync(self, install_root, run=None, reconcile_source=False, adopt_copies=False):
+    def sync(self, install_root, run=None, reconcile_source=False, adopt_copies=False, source_only=False):
         directory, state = self.load_run(run) if run else (None, None)
         if state and not state.get("published"):
             raise PackageError("Run has not been published; preserve it pending and synchronize independently")
@@ -538,6 +568,14 @@ class Package:
             raise PackageError("Stable source does not equal the selected remote revision")
         stable = Package(primary)
         skills = stable.discover()
+        if source_only:
+            if state:
+                state.update(status="source_synced", source_synced=latest)
+                self.save_run(directory, state)
+            return {"status": "source_synced", "commit": latest, "source": str(primary),
+                    "skills": skills, "next": "Skills Manager update/deploy, then confirm-install"}
+        # Compatibility for frozen pre-migration Python callers and their saved regressions.
+        # The current CLI always uses source_only and never enters this legacy installer.
         install_root = install_root.absolute()
         if install_root.resolve().is_relative_to(primary.resolve()):
             raise PackageError("Installation root must be outside the package source")
@@ -593,16 +631,104 @@ class Package:
             self.save_run(directory, state)
         return {"status": "synced", "commit": latest, "source": str(primary), "installed": installed}
 
+    def confirm_install(self, cli, run=None):
+        """Acknowledge manager-owned files only after inspecting the real library and deployments."""
+        directory, state = self.load_run(run) if run else (None, None)
+        if state and not state.get("published"):
+            raise PackageError("Run has not been published; installation cannot close it")
+        head = git(self.root, "rev-parse", "HEAD").stdout.strip()
+        if git(self.root, "branch", "--show-current").stdout.strip() != self.policy["branch"] or git(self.root, "status", "--porcelain").stdout:
+            raise PackageError("Confirm installation from the clean stable maintenance source")
+        if state and (git(self.root, "merge-base", "--is-ancestor", state["published"], head, check=False).returncode
+                      or state.get("source_synced", head) != head):
+            raise PackageError("Stable source does not match this run's synchronized publication")
+        repository = manager_json(cli, "repo", "status")
+        library = Path(repository["skills_dir"])
+        metadata_root = Path(repository["metadata_dir"]) / "skills"
+        records = {record["name"]: record for record in manager_json(cli, "skills", "list")}
+        agents = {agent["key"]: agent for agent in manager_json(cli, "agents", "list")}
+        names = self.discover()
+        expected = upstream_inputs(self.skills_root, names)
+        actual = upstream_inputs(library, names)
+        deployments = {}
+        default_branch = None
+        for name in names:
+            record = records.get(name)
+            entry = library / name
+            if not record or Path(record["path"]).resolve() != entry.resolve():
+                raise PackageError(f"Skills Manager does not own the expected library entry: {name}")
+            reference = record.get("source_ref", "").rstrip("/").removesuffix(".git")
+            remote = self.policy["remote"].rstrip("/").removesuffix(".git")
+            local_source = record.get("source_type") == "local" and Path(reference).resolve() == (self.skills_root / name).resolve()
+            skill_reference = f"{remote}/tree/{self.policy['branch']}/{Path(self.policy['skills_root']).as_posix()}/{name}"
+            if not local_source and reference not in {remote, skill_reference}:
+                raise PackageError(f"Skills Manager source differs from the maintenance source: {name}")
+            metadata_path = contained(metadata_root, record["id"] + ".json")
+            if not metadata_path.is_file():
+                raise PackageError(f"Skills Manager source metadata is missing: {name}")
+            metadata = read_json(metadata_path)
+            source = metadata.get("source", {})
+            if (metadata.get("skill_id") != record["id"] or metadata.get("path") != name
+                    or source.get("type") != record.get("source_type")
+                    or source.get("ref") != record.get("source_ref")):
+                raise PackageError(f"Skills Manager source metadata disagrees with the registry: {name}")
+            if not local_source:
+                subpath = str(source.get("subpath", "")).replace("\\", "/").strip("/")
+                expected_subpath = (Path(self.policy["skills_root"]) / name).as_posix()
+                if subpath != expected_subpath:
+                    raise PackageError(f"Skills Manager source subpath differs: {name}")
+                branch = source.get("branch")
+                if branch is None:
+                    if default_branch is None:
+                        remote_head = git(self.root, "ls-remote", "--symref", self.policy["remote"], "HEAD").stdout
+                        match = re.search(r"(?m)^ref: refs/heads/(.+)\tHEAD$", remote_head)
+                        if not match:
+                            raise PackageError("Cannot verify the default branch used by Skills Manager")
+                        default_branch = match[1]
+                    branch = default_branch
+                if branch != self.policy["branch"]:
+                    raise PackageError(f"Skills Manager source branch differs: {name}")
+            if actual[name]["fingerprint"] != expected[name]["fingerprint"]:
+                raise PackageError(f"Manager library is missing or differs from the maintenance source: {name}")
+            deployments[name] = []
+            for key in record.get("deployed_to", []):
+                if key not in agents:
+                    raise PackageError(f"Unknown managed deployment agent: {key}")
+                root = Path(agents[key]["skills_dir"])
+                target = root / name
+                fingerprint = upstream_inputs(root, [name])[name]["fingerprint"]
+                if fingerprint != expected[name]["fingerprint"] or (linked(target) and target.resolve() != entry.resolve()):
+                    raise PackageError(f"Managed deployment is missing, stale or points elsewhere: {key}/{name}")
+                deployments[name].append(key)
+        if state:
+            state.update(status="synced", synced=head, installed=names, deployments=deployments,
+                         installation_manager="skills-manager")
+            evaluated = state.get("upstream_evaluated", {})
+            current = upstream_inputs(library, self.policy["upstream_skills"])
+            compatibility = self.state_root / "upstream-compatibility.json"
+            prior = read_json(compatibility) if compatibility.exists() else {}
+            versions = prior.get("versions", {}) if prior.get("install_root") == str(library.resolve()) else {}
+            for name, version in evaluated.items():
+                if current.get(name) == version:
+                    versions[name] = version
+            if evaluated:
+                write_json(compatibility, {"install_root": str(library.resolve()), "versions": versions,
+                                           "confirmed_by_run": run})
+            self.save_run(directory, state)
+        return {"status": "synced", "commit": head, "source": str(self.root), "library": str(library),
+                "installation_manager": "skills-manager", "installed": names, "deployments": deployments}
+
 
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["inspect", "read", "structure", "prepare", "verify", "publish", "resume", "sync"])
+    parser.add_argument("action", choices=["inspect", "read", "structure", "prepare", "verify", "publish", "resume", "sync", "confirm-install"])
     parser.add_argument("--source", type=Path, default=Path(__file__).resolve().parent.parent)
     parser.add_argument("--run")
     parser.add_argument("--existing-worktree", type=Path)
-    parser.add_argument("--install-root", type=Path, default=Path.home() / ".agents" / "skills")
+    parser.add_argument("--install-root", type=Path, default=Path.home() / ".skills-manager" / "skills")
+    parser.add_argument("--skills-manager-cli", type=Path, help="Resolved Skills Manager CLI for confirmation")
     parser.add_argument("--reconcile-source", action="store_true")
     parser.add_argument("--adopt-copies", action="store_true")
     parser.add_argument("--checked-upstream", nargs="*", help="Dependencies whose saved contracts the agent evaluated")
@@ -622,7 +748,7 @@ def main():
             print(json.dumps(result, ensure_ascii=False))
             return 0
         package = Package(args.source)
-        if args.action not in {"inspect", "structure", "sync"} and not args.run:
+        if args.action not in {"inspect", "structure", "sync", "confirm-install"} and not args.run:
             raise PackageError("This action needs a run identifier")
         if args.run and args.action in {"verify", "publish", "resume", "sync"}:
             runtime = Path(package.load_run(args.run)[1]["runtime"]).resolve()
@@ -630,7 +756,7 @@ def main():
                 raise PackageError(f"Use the pinned execution tool for this run: {runtime}")
         with package.transaction():
             if args.action == "inspect":
-                result = package.inspect(args.install_root)
+                result = package.inspect(args.install_root, manager_owned=True)
             elif args.action == "structure":
                 if args.validator is None or args.validation_python is None:
                     raise PackageError("structure needs --validator and --validation-python")
@@ -638,13 +764,17 @@ def main():
             elif args.action == "prepare":
                 result = package.prepare(args.run, args.existing_worktree, args.install_root)
             elif args.action == "sync":
-                result = package.sync(args.install_root, args.run, args.reconcile_source, args.adopt_copies)
+                if args.adopt_copies:
+                    raise PackageError("Skills Manager owns installation; adopt copies through manage-skills")
+                result = package.sync(args.install_root, args.run, args.reconcile_source, source_only=True)
+            elif args.action == "confirm-install":
+                result = package.confirm_install(args.skills_manager_cli or skills_manager_cli(), args.run)
             elif args.action == "verify":
                 result = package.verify(args.run, args.checked_upstream)
             else:
                 result = getattr(package, args.action)(args.run)
         print(json.dumps(result, ensure_ascii=False))
-        return 0 if result.get("status", "ok") in {"ok", "prepared", "verified", "published", "synced"} else 2
+        return 0 if result.get("status", "ok") in {"ok", "prepared", "verified", "published", "source_synced", "synced"} else 2
     except (PackageError, OSError, ValueError, subprocess.TimeoutExpired) as error:
         print(json.dumps({"status": "blocked", "error": str(error)}, ensure_ascii=False))
         return 1

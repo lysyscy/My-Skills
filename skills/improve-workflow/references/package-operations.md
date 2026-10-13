@@ -1,6 +1,14 @@
 # 个人技能包操作
 
-读者：维护个人包的 Agent。运行状态保存在 Git common dir 的 `workflow-state/`，位于技能发现目录之外；不是第二份产品待办。工具为包根的 `tools/skill_package.py`，Python 标准库与 Git 即可。先查实际 Python、工具帮助、安装目录和链接；不沿用 README 的另一台电脑路径。
+读者：维护个人包的 Agent。运行状态保存在维护仓 Git common dir 的 `workflow-state/`，位于技能发现目录之外；不是第二份产品待办。工具为完整维护源根目录的 `tools/skill_package.py`，Python 标准库与 Git 即可。
+
+## 维护源与安装入口
+
+My Skills 负责编辑、检查和发布；Skills Manager 负责中央库、更新和 Agent 部署。安装目录只有独立技能及其内部资源，不能从它向上两层寻找包策略或管理工具。
+
+先读本机 `manage-skills`，解析其受版本戳保护的 CLI；`repo status`、`skills show improve-workflow` 和 `agents list` 提供中央库、来源及部署位置。复用项目入口提供的 My Skills 维护源，或本机同一来源远端的完整 Git 仓；核其 `skill-package.json`、`tools/skill_package.py`、Git origin 与技能来源一致。缺少维护仓时按当前授权取得完整源；缺少授权则只保留分析，不把中央库当维护仓。维护仓与已部署内容有差异时先定位来源，保护双方独有改动。
+
+工具调用带实际 `--source`；上游指纹检查与 prepare 的 `--install-root` 指向 `repo status` 返回的中央库。Python、CLI 和路径均查本机，项目只登记本机绑定，跨项目技能不保存某台电脑的绝对路径。
 
 ## 固定执行版本与状态
 
@@ -10,14 +18,15 @@ inspect的upstream字段比较实际原版及资源指纹；unverified或changed
 
 | 动作 | 输入与结果 | Agent 下一步 |
 |---|---|---|
-| inspect | 实际源 `--source`；安装根 `--install-root` 默认为本机 `.agents/skills`；发现技能、上游路径、dirty、未完运行及 installation | 按实际链接类型、目标和内容匹配核入口，判断范围；只分析时止于只读 |
+| inspect | 实际源 `--source`、中央库 `--install-root`；发现技能、上游路径、dirty、未完运行及 installation | 核中央库内容与维护源；实际 Agent 部署经 Skills Manager 核验，只有分析时止于只读 |
 | read | `--file`，相对引用加 `--relative-to`；默认限量文本或 JSON 概览，细读用 `--pointer` / `--offset` | 按下一节读取所需证据，不把概览或截断部分当成完整内容 |
 | structure | 实际源、`--validator` 和 `--validation-python`；先核 yaml，再执行发现的全部技能的现有验证器 | 环境阻塞时先选可用解释器，技能失败时修候选；此结果不替代 verify |
 | prepare | 唯一 `--run`；保存稳定源原件、二进制差异、原HEAD与内容摘要，从最新主线建 worktree | 在返回的worktree迁入确认的增量；之后调用返回的runtime，始终带实际source和run |
 | verify | 运行标识；固定策略下执行候选检查及保存的旧回归，记录内容摘要和退出码 | 核原问题反馈、语义和审查；失败修复后再验 |
 | publish | 有效验证、已提交的隔离worktree | published 后同步；needs_verification 或 conflict 时整合、核证据再验；pending 保留并按本轮三次上限处理 |
 | resume | 下一次调用接续已有运行，核不确定推送是否已被远端接收 | 未发布时开启新一轮最多三次尝试；已发布时直接处理同步 |
-| sync | 实际安装根；可带已发布运行 | 核主线、稳定源和每个安装目标；报告已发布与已安装的区别 |
+| sync | 实际维护源；可带已发布运行；CLI 只推进稳定源，返回 source_synced | 继续 Skills Manager 更新及部署；source_synced 不是安装完成 |
+| confirm-install | 完整稳定维护源、实际 `--skills-manager-cli`；可带已发布运行 | 只读核中央库来源、所有资源内容与已声明的实际 Agent 部署；通过才登记 synced，失败保留待安装运行 |
 
 首次为已经创建的隔离 `codex/` 工作区建立运行，可用 prepare 的 `--existing-worktree`，须属同一仓并包含最新主线；只接管本任务拥有的现场。普通调用由 prepare 创建工作区。工具不替 Agent 暂存或提交文件；验证后按本轮明确文件列表保存。源码提交不改变内容摘要，新增或修改输入会使证据失效。
 
@@ -31,11 +40,11 @@ prepare 先保存稳定源中的 tracked 和未忽略的新文件；忽略的凭
 
 已发布并确认原增量逐项处置后，sync 可带 `--reconcile-source`：只有源HEAD、内容及快照仍匹配时，才释放已保存的旧dirty并正常推进主线。源已被其他任务改动时重新保护新成果，不能沿用旧快照释放它。
 
-安装根已有个人技能普通副本时先比较，保护并迁入其独有改动；随后才用 `--adopt-copies` 将原目录完整搬至安装根旁的 `skill-install-backups/` 并接链接。这个选项只用于已确认的个人副本；Matt原版和归属不明副本继续保留。陌生链接拒绝覆盖；本包已有链接只替换链接本身。安装失败报告真实部分状态并保留恢复材料，不报告整机同步完成。
+中央库或 Agent 安装副本有独有改动时先比较、保存并迁入维护源的有效增量；已有技能通过 Skills Manager 原位更新，保留 ID、来源、预设和部署选择。新增技能用维护远端的准确技能子目录入库，再按当前授权选择 Agent 部署。安装冲突、held_back_removals 或未获准的覆盖保留现场，按 manage-skills 处理；不删除重装，不使用 force，不由个人工具重建链接。Matt 原版与归属不明副本保持原渠道和边界。
 
 ## 材料读取与结构校验
 
-本包维护默认用工具反馈完成现场核验：inspect 的 installation 区分 symlink、directory_link（包括 Windows Junction）、copy 和缺项，给出实际与预期目标及内容 matches_source。安装完成须同时是链接、目标一致、内容匹配；普通副本内容相同也仍须按副本协议处理。复用此反馈，不另写仅认 symlink 的检查。
+inspect 的 installation 给出中央库实际形态与 matches_source，不要求它链接回维护源。安装完成用 confirm-install：Skills Manager 记录的来源与中央库路径须正确，完整资源指纹与维护源一致，声明部署的每个 Agent 路径须存在且内容匹配；链接部署还须指向中央库。缺项、陈旧内容、错误来源或错误目标都拒绝关闭。仅 metadata 显示 deployed 不算完成；没有部署的技能明确保持 library-only。
 
 读取证据先调用 `read --file '<实际文件>'`；JSON 默认只显示一级字段类型与数量，需具体内容时用 `--pointer '/sources/local-source/files'` 等实际键，空指针选根。文本及选中 JSON 每次默认 2000 字符，上限 6000；complete 只表示当前 view 输出完整，json_overview 不是原文。next_offset 非空时按需续读；同一内容的续读须保持 sha256 一致。read 的项数用于定位，文件摘要用于核续读来源；清单完整性另用已有快照、摘要机制或定向程序实际比对原件与清单，只返回统计、差异及证据位置，明细留在原文件。
 
@@ -45,10 +54,10 @@ prepare 先保存稳定源中的 tracked 和未忽略的新文件；忽略的凭
 
 ## 新会话同步
 
-新会话首次使用个人方法时，执行 inspect 并接续本机未完同步；稳定源无待保护修改时 sync 一次，再读取所需技能正文。发现本任务相关上游变化时按入口的更新适配模式核消费契约，有证据的个人适配自主完成；不自动全面复盘产品会话。出现dirty先保护，运行中任务用固定规则基线；版本检查不重复到每票或每次工具调用。
+新会话首次使用个人方法时，定位完整维护源，执行 inspect 并接续本机未完同步；稳定源无待保护修改时 sync 一次。随后通过 manage-skills 对已入库的个人技能 check/update，保持已选择的 Agent 部署；新技能按当前授权入库及部署。运行 confirm-install，再读取本轮要用的实际安装正文。已核一致时复用结果，不重复更新。发现相关上游变化时按入口核消费契约，不自动全面复盘产品会话；dirty先保护，运行中任务保持固定基线，版本检查不重复到每票。
 
 ## 核验与收尾
 
 工具按最终差异选择机械验证：仅技能文档、技能UI元数据或README变化时检查目录与必要元信息；管理工具、检查、包策略和其他输入变化时执行包策略的回归及保存的旧回归。新增技能自动发现，完整YAML结构按本机 skill-creator 的 quick_validate.py核验。候选行为仍由Agent按实际改动判断，机械回归通过不代表所有决策正确。运行可恢复不等于任务完成。
 
-同步完成后，确认源快照、必要日志及本轮未决均有去向；用Git工作区工具释放本轮无须保留的worktree，保留执行快照供进行中任务和自修改失败恢复。未发布、冲突或未完成同步的现场保持可访问。状态与证据保留在原运行，不为清理另建台账。
+同步完成后，确认源快照、必要日志及本轮未决均有去向；用Git工作区工具释放本轮无须保留的worktree，保留执行快照供进行中任务和自修改失败恢复。未发布、冲突或未完成安装确认的现场保持可访问。旧固定工具尚无 source-only 同步时，保留旧验证和发布反馈；本次授权已改为 Skills Manager 管理的迁移，正常快进稳定源后由 Skills Manager 更新部署，再用新维护工具 confirm-install 关闭，旧链接安装器不用于迁移。状态与证据保留在原运行，不为清理另建台账。
