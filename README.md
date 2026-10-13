@@ -11,7 +11,7 @@ Status: living
 - [improve-workflow](skills/improve-workflow/SKILL.md)：说“复盘并优化个人工作流”，复用 Matt retro，维护整个个人包、未来技能和入口自身，验证后自动发布并同步本机。只要求分析时保持只读。
 - [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：已确认的个人实施、动态分派、模型限制、验证策略与评审节奏。执行规则只在这里维护。
 - `skills/implement-solo-spec/agents/openai.yaml`：保留显式调用策略，随技能源维护。
-- [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：个人基础约定接入技能，复用 Matt 配置与项目现有入口；历史试跑见下文，长期效果仍待观察。
+- [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：个人基础约定接入技能，先核必要绑定，按实际缺口展开，复用 Matt 配置与项目现有入口；历史试跑见下文，长期效果仍待观察。
 - [文档维护约定](skills/setup-solo-workflow/references/document-maintenance.md)：接入技能与项目条件入口可读取的通用方法，具体目录和例外由项目维护。
 
 ## 已定方向
@@ -40,6 +40,8 @@ Status: living
 
 本仓行为回归运行 `python -m unittest discover -s tests -v`，结构核验经[包操作的 structure 入口](skills/improve-workflow/references/package-operations.md#材料读取与结构校验)调用本机 skill-creator 的验证器；行为回归用临时仓和安装夹具。修改管理工具时同时保留旧回归并核自修改路径。检查通过不代替真实使用效果或跨电脑已同步证明。`.gitattributes` 统一提交为 LF；`.gitignore` 排除环境、缓存和凭据。
 
+修改接入行为时使用[接入场景验证](skills/setup-solo-workflow/references/setup-evaluation.md)及 `tests/setup_fixture.py`，在隔离项目核复用、冲突、未提交资料与重复接入，并采集实际读取反馈。夹具自身的破坏检测由既有 unittest 入口覆盖；Agent 产物的语义验收由本轮主 Agent 核实际差异。演练不作为每次项目接入的固定成本。
+
 ## 安装现场与试跑记录
 
 2026-10-13 首次接入核实：当时两个用户级技能目录 `C:/Users/Administrator/.agents/skills/setup-solo-workflow`、`C:/Users/Administrator/.agents/skills/implement-solo-spec` 均为 junction，分别指向 `D:/dev/My-Skills/skills/` 下同名目录；实际技能内容与引用可达，个人维护源只有本仓这一份。原安装副本保留在 `C:/Users/Administrator/.agents/skill-install-backups/20261013-mtrl320`，仅供恢复。其他宿主仍须查实际链接、内容和引用，不能凭本记录认定已安装。
@@ -55,3 +57,5 @@ Status: living
 2026-10-13 后续真实试跑为 mtrl-workbench 的 TAIL-321 归档工具修复：一次完整双轴审查后又有三次聚焦复查，既检出真实恢复问题，也暴露了关闭责任不清和无发现轴被再次唤醒的成本。按本轮评估收紧为实现者批量修复自验、主 Agent 核证据并关闭，具体未决或未覆盖影响才追加对应审查；规则正文只在 implement-solo-spec 维护。同步明确读取停止条件、最终稳定状态验证和最少收尾记录。保留完整最终审查、隔离与有效回归、失败归因、项目授权和个人模型上限。本轮保持技能名称、输入范围及显式调用策略，本机 Matt 原版不动；没有实施通用入口改造。两项技能结构与引用检查通过，独立Agent gpt-6.1-sol/medium的七情景决策验证符合关闭、追加审查、授权批次、失败处理、证据复用及最少回执规则；这是只读决策演练，不证明真实运行遵循率或长期成本收益。
 
 在新任务中显式调用 `$implement-solo-spec` 并提供规格与票入口；只在用户明确采用时启用，既有任务继续原授权。此前六类场景的指令核对、setup 收尾试跑及样本项目重复方法收敛均为历史证据，不能代替新项目行为验证。提交、发布与部署按每个项目当前授权执行。
+
+2026-10-13 gysgl 接入复盘后，setup 改为先核必要绑定、按缺口选段、精简项目适配和集中收尾；新建隔离演练覆盖老项目、旧规则冲突、未提交资料和重复接入。首轮同配置的旧版/初版候选各四场景通过，读取为 46/39 次、81,150/50,918 字节；两轮总耗时都约 2.5 分钟，不能据此认定速度提高。演练暴露的临时豁免进入长期入口已在针对性复测消除；仍发生的旧规格全文扩读促使明确短预览操作，并让演练读取与现有包入口同样默认限量、显示续读位置。机械检查覆盖内容/索引保留、空目录、越权提交、引用和重复接入；语义与最终回执另核，运行证据保存在当次包状态。gysgl 仅精简工作流绑定，其他成果保留，产品尚未实施；长期成本收益待真实使用观察。
