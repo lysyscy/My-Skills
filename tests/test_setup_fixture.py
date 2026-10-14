@@ -190,6 +190,30 @@ class MigrationFixtureTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             check_migration(old, self.manifest)
 
+    def test_migration_cannot_lose_host_entry_or_required_navigation(self):
+        self.migrate()
+        project = self.root / "software"
+        entry = project / "AGENTS.md"
+        original = entry.read_bytes()
+        for content in (None, "", "[需求](docs/requirements.md)\n",
+                        "活任务 .scratch/current/spec.md。\n"):
+            with self.subTest(content=content):
+                if content is None:
+                    entry.unlink()
+                else:
+                    put(project, "AGENTS.md", content)
+                self.assertFalse(check_migration(self.root, self.manifest)["passed"])
+                entry.write_bytes(original)
+        self.assertTrue(check_migration(self.root, self.manifest)["passed"])
+
+    def test_optional_binding_cannot_be_empty_or_lose_authority(self):
+        self.migrate()
+        project = self.root / "software"
+        for content in ("", "历史 [决定](../archive/old-decision.md)。\n"):
+            with self.subTest(content=content):
+                put(project, "docs/agents/workflow.md", content)
+                self.assertFalse(check_migration(self.root, self.manifest)["passed"])
+
     def test_recovery_preserves_parallel_content_and_stops_at_occupied_origin(self):
         self.migrate()
         project = self.root / "software"

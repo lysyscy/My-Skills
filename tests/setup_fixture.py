@@ -223,8 +223,14 @@ def check_migration(root, manifest):
         except (ValueError, OSError, KeyError) as exc:
             errors.append(f"{name}: actual glob consumer failed: {exc}")
         for path in ("AGENTS.md", "docs/agents/workflow.md"):
-            if (project / path).exists():
+            if path == "AGENTS.md" and not (project / path).is_file():
+                errors.append(f"{name}: missing host entry: {path}")
+            if (project / path).is_file():
                 text = (project / path).read_text(encoding="utf-8")
+                required = ("docs/requirements.md", ".scratch/current/spec.md") if path == "AGENTS.md" else ("../requirements.md",)
+                for pointer in required:
+                    if pointer not in text:
+                        errors.append(f"{name}: missing required navigation in {path}: {pointer}")
                 if "docs/product.md" in text or "docs/product-copy.md" in text:
                     errors.append(f"{name}: retired ordinary entry in {path}")
                 for target in re.findall(r"\]\(([^)]+)\)", text):
