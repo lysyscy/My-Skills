@@ -39,10 +39,11 @@ class FakeManager:
         elif entry.exists():
             shutil.rmtree(entry)
 
-    def copy_current(self, name):
+    def copy_current(self, name, preserve_removals=False):
         target = self.library / name
-        self.unlink(target)
-        shutil.copytree(self.case.source / "skills" / name, target)
+        if not preserve_removals:
+            self.unlink(target)
+        shutil.copytree(self.case.source / "skills" / name, target, dirs_exist_ok=preserve_removals)
 
     def __call__(self, cli, *args):
         self.calls.append(args)
@@ -57,11 +58,15 @@ class FakeManager:
         if action == "check":
             return {"updates": [{"name": r["name"], "id": r["id"], "has_update": True} for r in self.records]}
         if action == "update":
-            if not self.noop_update and not self.held_back:
+            if not self.noop_update:
                 selected = args[2] if len(args) > 2 and not args[2].startswith("--") else None
                 for record in self.records:
                     if selected is None or selected in (record["name"], record["id"]):
-                        self.copy_current(record["name"])
+                        installed = self.library / record["name"]
+                        source = self.case.source / "skills" / record["name"]
+                        removed = {p.relative_to(installed) for p in installed.rglob("*") if p.is_file()} - {p.relative_to(source) for p in source.rglob("*") if p.is_file()}
+                        if not self.held_back or removed:
+                            self.copy_current(record["name"], preserve_removals=self.held_back)
             return {"updated": [] if self.held_back else [r["name"] for r in self.records],
                     "held_back_removals": ["fixture-removal"] if self.held_back else []}
         if action == "install":
@@ -115,6 +120,85 @@ class ManagerSync(unittest.TestCase):
     def sync_fake(self, fake, run=None, **kwargs):
         with patch.object(manager, "manager_json", side_effect=fake):
             return self.package.sync_manager("fixture-cli", run, **kwargs)
+
+    def published_resource_change(self, copied_deployment=False):
+        # Payloads are candidate resources; Git and all installs stay in this fixture.
+        old = (fixtures.ROOT / "skills/setup-solo-workflow/references/document-maintenance.md").read_bytes()
+        added = (fixtures.ROOT / "skills/improve-workflow/references/package-operations.md").read_bytes()
+        for path, content in (("references/old.md", old), ("references/obsolete.md", old)):
+            target = self.source / "skills/first" / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content)
+        self.commit(self.source, "resource baseline")
+        git(self.source, "push", "origin", "main")
+        fake = FakeManager(self)
+        if copied_deployment:
+            fake.unlink(fake.agents / "first")
+            shutil.copytree(fake.library / "first", fake.agents / "first")
+        worktree = self.prepare()
+        (worktree / "skills/first/references/old.md").rename(worktree / "skills/first/references/execution.md")
+        (worktree / "skills/first/references/obsolete.md").unlink()
+        (worktree / "skills/first/references/added.md").write_bytes(added)
+        self.commit(worktree, "move add remove real references")
+        self.package.verify("trial")
+        self.package.publish("trial")
+        return fake, old, added
+
+    def assert_current_resources(self, root, old, added):
+        self.assertEqual((root / "first/references/execution.md").read_bytes(), old)
+        self.assertEqual((root / "first/references/added.md").read_bytes(), added)
+        self.assertFalse((root / "first/references/old.md").exists())
+        self.assertFalse((root / "first/references/obsolete.md").exists())
+
+    def test_real_resource_move_add_delete_reaches_library_and_deployment(self):
+        fake, old, added = self.published_resource_change(copied_deployment=True)
+        self.assertEqual(self.sync_fake(fake, "trial")["status"], "synced")
+        for root in (fake.library, fake.agents):
+            self.assert_current_resources(root, old, added)
+        state = self.package.load_run("trial")[1]
+        frozen = Path(state["runtime"]).parents[1]
+        self.assertEqual((frozen / "skills/first/references/old.md").read_bytes(), old)
+        self.assertFalse((frozen / "skills/first/references/execution.md").exists())
+
+    def test_real_resource_held_back_removal_is_visible_and_cannot_close(self):
+        fake, old, added = self.published_resource_change()
+        fake.held_back = True
+        with self.assertRaises(manager.PackageError):
+            self.sync_fake(fake, "trial")
+        self.assertEqual((fake.library / "first/references/obsolete.md").read_bytes(), old)
+        self.assertEqual((fake.library / "first/references/added.md").read_bytes(), added)
+        self.assertEqual(self.package.load_run("trial")[1]["status"], "source_synced")
+        fake.held_back = False
+        # A mixed tree needs explicit reconciliation; an ordinary retry must preserve it.
+        with self.assertRaises(manager.PackageError):
+            self.sync_fake(fake, "trial")
+        self.assertEqual((fake.library / "first/references/obsolete.md").read_bytes(), old)
+        self.assertEqual(self.package.load_run("trial")[1]["status"], "source_synced")
+
+    def test_real_resource_noop_update_preserves_old_files_and_cannot_close(self):
+        fake, old, added = self.published_resource_change()
+        fake.noop_update = True
+        with self.assertRaises(manager.PackageError):
+            self.sync_fake(fake, "trial")
+        self.assertEqual((fake.library / "first/references/old.md").read_bytes(), old)
+        self.assertFalse((fake.library / "first/references/added.md").exists())
+        self.assertEqual(self.package.load_run("trial")[1]["status"], "source_synced")
+        fake.noop_update = False
+        self.assertEqual(self.sync_fake(fake, "trial")["status"], "synced")
+        self.assert_current_resources(fake.agents, old, added)
+
+    def test_real_resource_deploy_failure_keeps_old_agent_files_until_retry(self):
+        fake, old, added = self.published_resource_change(copied_deployment=True)
+        fake.fail = "deploy"
+        with self.assertRaises(manager.PackageError):
+            self.sync_fake(fake, "trial")
+        self.assert_current_resources(fake.library, old, added)
+        self.assertEqual((fake.agents / "first/references/old.md").read_bytes(), old)
+        self.assertFalse((fake.agents / "first/references/execution.md").exists())
+        self.assertEqual(self.package.load_run("trial")[1]["status"], "source_synced")
+        fake.fail = None
+        self.assertEqual(self.sync_fake(fake, "trial")["status"], "synced")
+        self.assert_current_resources(fake.agents, old, added)
 
     def test_two_independent_runs_publish_integrate_and_sync_without_loss(self):
         fake = FakeManager(self)

@@ -8,6 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import time
 
@@ -98,6 +99,146 @@ def prepare(root, skill):
     return {"root": str(root), "cases": list(state["cases"]), "skill": str(skill)}
 
 
+def consume(project):
+    """Exercise the configured glob, rather than treating a valid link as proof."""
+    config = json.loads((project / "consumer.json").read_text(encoding="utf-8"))
+    return {p.relative_to(project).as_posix(): p.read_bytes()
+            for p in project.glob(config["requirements_glob"]) if p.is_file()}
+
+
+def prepare_migration(root, skill):
+    root = Path(root).resolve()
+    if root.exists():
+        raise ValueError("Use a fresh evaluation root; existing materials are preserved")
+    root.mkdir(parents=True)
+    state = {"mode": "migration", "skill": str(Path(skill).resolve()), "cases": {}}
+    manifest = {"migration_authorized": False, "archive_authorized": False,
+                "delete_authorized": False, "cases": {}}
+    for name in ("software", "materials"):
+        project = root / name
+        project.mkdir()
+        subprocess.run(["git", "init", "-q", str(project)], check=True)
+        git(project, "config", "user.name", "Migration fixture")
+        git(project, "config", "user.email", "fixture@example.invalid")
+        for path, text in {
+            "AGENTS.md": "现行业务 [需求](docs/product.md)；活任务 .scratch/current/spec.md。\n",
+            "docs/product.md": "# 现行需求\n批准后人工交付；原始数据保留。\n",
+            "docs/product-copy.md": "# 现行需求\n批准后人工交付；原始数据保留。\n",
+            "docs/old-decision.md": "# 历史决定\n曾允许自动交付，现已撤销；保留裁定来源。\n",
+            "docs/adr/0001-authority.md": "# 有效 ADR\n人工批准后才能交付。\n",
+            ".scratch/current/spec.md": "Status: active\n固定范围：只校对；原运行规则不得切换。\n",
+            ".scratch/current/issues/01.md": "Status: in-progress\n只校对，不实施交付。\n",
+            "consumer.json": '{"requirements_glob":"docs/product.md"}\n',
+        }.items():
+            put(project, path, text)
+        if name == "software":
+            put(project, "package.json", '{"scripts":{"test":"node --test"}}\n')
+            put(project, "src/main.js", "// Existing application.\n")
+        else:
+            put(project, "data/source.csv", "item,amount\noriginal,7\n")
+            put(project, "tables/derived.csv", "total\n7\n")
+        git(project, "add", ".")
+        git(project, "commit", "-qm", "Migration baseline")
+        put(project, "docs/product.md", (project / "docs/product.md").read_text(encoding="utf-8") + "未提交裁定：例外先暂停。\n")
+        put(project, "docs/product-copy.md", (project / "docs/product.md").read_text(encoding="utf-8"))
+        put(project, "inbox/original.txt", "未跟踪原件，不能覆盖。\n")
+        put(project, "docs/pending.md", "Intent-to-add，仍在讨论的独有信息。\n")
+        git(project, "add", "-N", "docs/pending.md")
+        before = {"head": git(project, "rev-parse", "HEAD"), "files": files(project),
+                  "directories": sorted(directories(project)), "index": index_entries(project)}
+        backup = root / "rollback" / name
+        for path in before["files"]:
+            target = backup / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(project / path, target)
+        index = Path(git(project, "rev-parse", "--absolute-git-dir")) / "index"
+        shutil.copyfile(index, backup / "git-index")
+        before["index_sha256"] = hashlib.sha256(index.read_bytes()).hexdigest()
+        state["cases"][name] = before
+        manifest["cases"][name] = [
+            {"source": "docs/product.md", "target": "docs/requirements.md", "action": "move"},
+            {"source": "docs/old-decision.md", "target": "docs/archive/old-decision.md", "action": "archive"},
+            {"source": "docs/product-copy.md", "target": "docs/requirements.md", "action": "delete"},
+        ]
+        for entry in manifest["cases"][name]:
+            entry["sha256"] = before["files"][entry["source"]]
+    put(root, "state.json", json.dumps(state, ensure_ascii=False, indent=2))
+    put(root, "migration.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+    return {"root": str(root), "cases": list(state["cases"]), "manifest": str(root / "migration.json")}
+
+
+def check_migration(root, manifest):
+    root = Path(root).resolve()
+    state = json.loads((root / "state.json").read_text(encoding="utf-8"))
+    if state.get("mode") != "migration":
+        raise ValueError("Migration requires its own fixture baseline")
+    errors = []
+    expected = {"docs/product.md": ("move", "docs/requirements.md"),
+                "docs/old-decision.md": ("archive", "docs/archive/old-decision.md"),
+                "docs/product-copy.md": ("delete", "docs/requirements.md")}
+    if set(manifest.get("cases", {})) != set(state["cases"]):
+        errors.append("migration: case manifest differs from baseline")
+    for name, before in state["cases"].items():
+        project = root / name
+        after = files(project)
+        entries = manifest.get("cases", {}).get(name, [])
+        if len(entries) != len(expected) or {e.get("source") for e in entries} != set(expected):
+            errors.append(f"{name}: migration scope differs from approved fixture")
+        for entry in entries:
+            source, target, action = (entry.get(key) for key in ("source", "target", "action"))
+            if expected.get(source) != (action, target) or entry.get("sha256") != before["files"].get(source):
+                errors.append(f"{name}: invalid mapping or baseline: {source}")
+                continue
+            authorized = manifest.get("migration_authorized") is True
+            if action in ("archive", "delete"):
+                authorized = authorized and manifest.get(action + "_authorized") is True
+            if not authorized:
+                errors.append(f"{name}: missing independent {action} authorization: {source}")
+            if source in after or after.get(target) != before["files"][source]:
+                errors.append(f"{name}: content conservation failed: {source} -> {target}")
+        editable = set(expected) | {"AGENTS.md", "consumer.json"}
+        backup_files = files(root / "rollback" / name)
+        for path, digest in before["files"].items():
+            if path not in editable and after.get(path) != digest:
+                errors.append(f"{name}: protected content changed: {path}")
+            if backup_files.get(path) != digest:
+                errors.append(f"{name}: rollback original changed: {path}")
+        index_backup = root / "rollback" / name / "git-index"
+        if not index_backup.exists() or hashlib.sha256(index_backup.read_bytes()).hexdigest() != before["index_sha256"]:
+            errors.append(f"{name}: rollback index changed")
+        if index_entries(project) != before["index"]:
+            errors.append(f"{name}: protected index changed")
+        if git(project, "rev-parse", "HEAD") != before["head"]:
+            errors.append(f"{name}: unauthorized commit")
+        allowed_new = {"docs/requirements.md", "docs/archive/old-decision.md", "docs/agents/workflow.md"}
+        for path in after.keys() - before["files"].keys() - allowed_new:
+            errors.append(f"{name}: unexpected new artifact: {path}")
+        for directory in directories(project) - set(before["directories"]):
+            if not any(path.startswith(directory + "/") for path in after):
+                errors.append(f"{name}: empty category directory: {directory}")
+        try:
+            actual = consume(project)
+            if actual != {"docs/requirements.md": (root / "rollback" / name / "docs/product.md").read_bytes()}:
+                errors.append(f"{name}: actual glob consumer lost or duplicated requirements")
+        except (ValueError, OSError, KeyError) as exc:
+            errors.append(f"{name}: actual glob consumer failed: {exc}")
+        for path in ("AGENTS.md", "docs/agents/workflow.md"):
+            if (project / path).exists():
+                text = (project / path).read_text(encoding="utf-8")
+                if "docs/product.md" in text or "docs/product-copy.md" in text:
+                    errors.append(f"{name}: retired ordinary entry in {path}")
+                for target in re.findall(r"\]\(([^)]+)\)", text):
+                    target = target.strip("<>").split("#", 1)[0]
+                    if target and not re.match(r"(?:https?|mailto):", target):
+                        resolved = Path(target) if Path(target).is_absolute() else (project / path).parent / target
+                        if not resolved.exists():
+                            errors.append(f"{name}: broken link in {path}: {target}")
+        status = subprocess.run(["git", "-C", str(project), "diff", "--check"], capture_output=True, text=True)
+        if status.returncode:
+            errors.append(f"{name}: whitespace failure")
+    return {"passed": not errors, "errors": errors, "cases": len(state["cases"])}
+
+
 def read(root, path, start=1, end=None, headings=False, offset=0, limit=2000):
     if start < 1 or (end is not None and end < start) or offset < 0 or not 1 <= limit <= 6000:
         raise ValueError("Invalid read window; use positive lines, nonnegative offset and limit 1..6000")
@@ -178,10 +319,11 @@ def summary(root):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("prepare", "read", "inventory", "check", "summary"))
+    parser.add_argument("action", choices=("prepare", "prepare-migration", "read", "inventory", "check", "check-migration", "summary"))
     parser.add_argument("--root", required=True)
     parser.add_argument("--skill")
     parser.add_argument("--file")
+    parser.add_argument("--manifest")
     parser.add_argument("--start-line", type=int, default=1)
     parser.add_argument("--end-line", type=int)
     parser.add_argument("--headings", action="store_true")
@@ -190,6 +332,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.action == "prepare":
         result = prepare(args.root, args.skill)
+    elif args.action == "prepare-migration":
+        result = prepare_migration(args.root, args.skill)
+    elif args.action == "check-migration":
+        result = check_migration(args.root, json.loads(Path(args.manifest).read_text(encoding="utf-8")))
     elif args.action == "read":
         print(read(args.root, args.file, args.start_line, args.end_line, args.headings, args.offset, args.limit))
         raise SystemExit(0)
