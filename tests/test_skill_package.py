@@ -528,6 +528,75 @@ class Transactions(unittest.TestCase):
         self.assertEqual((self.install / "first").resolve(), old_target.resolve())
         self.assertEqual((self.install / "first/SKILL.md").read_text(), "previous compatible entry")
 
+    def test_declares_consumed_indirect_dependencies(self):
+        declared = manager.read_json(ROOT / "skill-package.json")["upstream_skills"]
+        self.assertTrue({"tdd", "code-review", "codebase-design", "grill-with-docs", "to-spec",
+                         "to-tickets", "grilling", "domain-modeling", "find-skills",
+                         "manage-skills"}.issubset(declared))
+
+    def test_missing_dependency_cannot_report_checked(self):
+        self.install.mkdir(parents=True)
+        versions = manager.upstream_inputs(self.install, self.package.policy["upstream_skills"])
+        manager.write_json(self.package.state_root / "upstream-compatibility.json",
+                           {"install_root": str(self.install.resolve()), "versions": versions})
+        report = self.package.inspect(self.install)["upstream"]
+        self.assertEqual(report["status"], "unverified")
+        self.assertEqual(report["missing"], self.package.policy["upstream_skills"])
+
+    def test_indirect_dependency_change_preserves_unaffected_baseline(self):
+        names = self.package.policy["upstream_skills"]
+        for name in names:
+            self.write(f"{name}/SKILL.md", name + " original contract", self.install)
+        self.package.prepare("baseline", install_root=self.install)
+        self.package.verify("baseline", checked_upstream=names)
+        self.package.publish("baseline")
+        self.package.sync(self.install, "baseline")
+        self.write("tdd/SKILL.md", "changed seam contract", self.install)
+        self.write("unused-skill/SKILL.md", "unrelated change", self.install)
+        report = self.package.inspect(self.install)["upstream"]
+        self.assertEqual(report["changed"], ["tdd"])
+        self.assertEqual(report["status"], "changed")
+        self.package.prepare("seam-reviewed", install_root=self.install)
+        result = self.package.verify("seam-reviewed", checked_upstream=["tdd"])
+        self.assertEqual(len(result["checks"]), 1)
+        self.package.publish("seam-reviewed")
+        self.package.sync(self.install, "seam-reviewed")
+        self.assertEqual(self.package.inspect(self.install)["upstream"]["status"], "checked")
+        self.write("tdd/SKILL.md", "another change before confirmation", self.install)
+        self.package.prepare("seam-pending", install_root=self.install)
+        self.package.verify("seam-pending", checked_upstream=["tdd"])
+        self.write("tdd/SKILL.md", "changed during review", self.install)
+        self.package.publish("seam-pending")
+        self.package.sync(self.install, "seam-pending")
+        self.assertEqual(self.package.inspect(self.install)["upstream"]["changed"], ["tdd"])
+
+    def test_added_dependency_needs_new_snapshot_before_acknowledgement(self):
+        self.package.policy["upstream_skills"] = ["implement"]
+        self.write("skill-package.json", json.dumps(self.package.policy))
+        self.commit(self.source, "old declaration")
+        git(self.source, "push", "origin", "main")
+        self.write("implement/SKILL.md", "calls tdd", self.install)
+        self.write("tdd/SKILL.md", "test seam contract", self.install)
+        state = self.package.prepare("old-snapshot", install_root=self.install)
+        worktree = Path(state["worktree"])
+        candidate_policy = manager.read_json(worktree / "skill-package.json")
+        candidate_policy["upstream_skills"] = ["implement", "tdd"]
+        self.write("skill-package.json", json.dumps(candidate_policy), worktree)
+        with self.assertRaisesRegex(manager.PackageError, "No saved upstream input.*tdd"):
+            self.package.verify("old-snapshot", checked_upstream=["tdd"])
+        self.assertEqual(self.package.load_run("old-snapshot")[1]["upstream"], state["upstream"])
+        self.package.verify("old-snapshot")
+        self.commit(worktree, "declare tdd")
+        self.package.publish("old-snapshot")
+        self.package.sync(self.install, "old-snapshot")
+        updated = manager.Package(self.source)
+        self.assertEqual(updated.inspect(self.install)["upstream"]["changed"], ["implement", "tdd"])
+        updated.prepare("new-snapshot", install_root=self.install)
+        updated.verify("new-snapshot", checked_upstream=["implement", "tdd"])
+        updated.publish("new-snapshot")
+        updated.sync(self.install, "new-snapshot")
+        self.assertEqual(updated.inspect(self.install)["upstream"]["status"], "checked")
+
     def test_upstream_change_detection_snapshots_and_compatible_baseline(self):
         original = self.install / "retro" / "SKILL.md"
         original.parent.mkdir(parents=True)
@@ -535,11 +604,13 @@ class Transactions(unittest.TestCase):
         implementation = self.install / "implement" / "SKILL.md"
         implementation.parent.mkdir()
         implementation.write_text("implementation contract one")
+        for name in set(self.package.policy["upstream_skills"]) - {"retro", "implement"}:
+            self.write(f"{name}/SKILL.md", name + " original contract", self.install)
         self.assertEqual(self.package.inspect(self.install)["upstream"]["status"], "unverified")
         state = self.package.prepare("upstream-one", install_root=self.install)
         directory, _ = self.package.load_run("upstream-one")
         self.assertEqual((directory / "upstream-inputs/retro/SKILL.md").read_text(), "original version one")
-        self.package.verify("upstream-one", checked_upstream=["implement"])
+        self.package.verify("upstream-one", checked_upstream=[name for name in self.package.policy["upstream_skills"] if name != "retro"])
         self.package.publish("upstream-one")
         self.package.sync(self.install, "upstream-one")
         self.assertEqual(self.package.inspect(self.install)["upstream"]["changed"], ["retro"])

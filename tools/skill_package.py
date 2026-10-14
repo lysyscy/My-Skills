@@ -332,6 +332,7 @@ class Package:
         compatibility_path = self.state_root / "upstream-compatibility.json"
         prior = read_json(compatibility_path) if compatibility_path.exists() else {}
         previous = prior.get("versions", {}) if prior.get("install_root") == str(install_root.resolve()) else {}
+        missing = [name for name, version in upstream.items() if not version["fingerprint"]]
         changed = [name for name, version in upstream.items()
                    if version["fingerprint"] != previous.get(name, {}).get("fingerprint")]
         return {"source": str(self.root), "head": git(self.root, "rev-parse", "HEAD").stdout.strip(),
@@ -339,8 +340,8 @@ class Package:
                 "skills": self.discover(), "pending": runs,
                 "installation": self.installation(install_root, manager_owned),
                 "installation_manager": "skills-manager" if manager_owned else "legacy-source-links",
-                "upstream": {"versions": upstream, "changed": changed,
-                             "status": "unverified" if not prior else "changed" if changed else "checked",
+                "upstream": {"versions": upstream, "changed": changed, "missing": missing,
+                             "status": "unverified" if not prior or missing else "changed" if changed else "checked",
                              "confirmed_by_run": prior.get("confirmed_by_run")}}
 
     def installation(self, install_root, manager_owned=False):

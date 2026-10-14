@@ -9,7 +9,7 @@ description: 为独立开发与 Agent 协作项目接入文档维护、验证和
 
 ## 先定位，再按缺口展开
 
-新会话首次使用个人方法，按[包操作的新会话同步](../improve-workflow/references/package-operations.md#新会话同步)核本机源与安装一次；运行中任务保持固定规则基线。读取本次实际采用的[文档维护约定](references/document-maintenance.md)。
+按本次只读或已授权维护动作分流；新会话首次使用个人方法，按[包操作的新会话同步](../improve-workflow/references/package-operations.md#新会话同步)核本机源与安装一次；运行中任务保持固定规则基线。读取本次实际采用的[文档维护约定](references/document-maintenance.md)。
 
 先核指定工作区、已有 Agent 入口及未提交改动；复用本会话已读且来源未变的事实。老项目使用下表核必要绑定，新项目也先查已有或等价配置。表是本轮定位工具，结果回既有主人，不另建接入台账。
 
