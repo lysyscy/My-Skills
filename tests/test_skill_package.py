@@ -477,6 +477,119 @@ class Transactions(unittest.TestCase):
                                     "--source", str(self.source), "--run", "trial"])
         self.assertEqual(verified.returncode, 0, verified.stdout + verified.stderr)
 
+    def test_inspect_cli_does_not_create_state_or_refresh_index(self):
+        tracked = self.source / "skills/first/SKILL.md"
+        index = self.source / ".git/index"
+
+        def invalidate_stat_cache():
+            info = tracked.stat()
+            os.utime(tracked, ns=(info.st_atime_ns, info.st_mtime_ns + 2_000_000_000))
+
+        invalidate_stat_cache()
+        original_index = index.read_bytes()
+        control = manager.process(["git", "-C", str(self.source), "status", "--porcelain"],
+                                  env=dict(os.environ, GIT_OPTIONAL_LOCKS="1"))
+        self.assertEqual(control.returncode, 0, control.stderr)
+        self.assertNotEqual(index.read_bytes(), original_index, "control must expose Git index refresh")
+        invalidate_stat_cache()
+        self.write("first/SKILL.md", "installed copy", self.install)
+
+        def snapshot():
+            return {(str(root), str(path.relative_to(root))):
+                    (path.stat().st_mtime_ns, path.read_bytes() if path.is_file() else None)
+                    for root in (self.source, self.remote, self.install)
+                    for path in [root, *root.rglob("*")]}
+
+        self.assertFalse(self.package.state_root.exists())
+        before = snapshot()
+        result = manager.process([sys.executable, str(ROOT / "tools/skill_package.py"), "inspect",
+                                  "--source", str(self.source), "--install-root", str(self.install)])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        after = snapshot()
+        self.assertEqual([name for name in sorted(before.keys() | after.keys())
+                          if before.get(name) != after.get(name)], [])
+        self.assertFalse(self.package.state_root.exists())
+        self.assertEqual(json.loads(result.stdout)["observation"], "unlocked")
+
+    def test_inspect_cli_observes_during_write_lock_without_network_or_manager(self):
+        probe = """import runpy, subprocess, sys
+original = subprocess.run
+def observation_git(args, *positional, **options):
+    assert args[0] == 'git', 'unexpected Manager or other process: ' + repr(args)
+    assert '--no-optional-locks' in args, 'observation must disable optional writes'
+    command = args[args.index('-C') + 2:]
+    assert (command[0] in {'rev-parse', 'status'} or command == ['remote', 'get-url', 'origin']), command
+    return original(args, *positional, **options)
+subprocess.run = observation_git
+runpy.run_path(sys.argv.pop(1), run_name='__main__')
+"""
+        with self.package.transaction():
+            lock = self.package.state_root / "lock"
+            before = (lock.stat().st_size, lock.stat().st_mtime_ns)
+            result = manager.process([sys.executable, "-c", probe, str(ROOT / "tools/skill_package.py"),
+                                      "inspect", "--source", str(self.source),
+                                      "--install-root", str(self.install)])
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads(result.stdout)["observation"], "unlocked")
+            self.assertEqual((lock.stat().st_size, lock.stat().st_mtime_ns), before)
+
+    def test_lightweight_document_path_is_an_explicit_allowlist(self):
+        for name in ("README.md", "AGENTS.md", "skills/first/SKILL.md", "skills/first/agents/openai.yaml",
+                     "docs/requirements.md", "docs/archive/trials.md"):
+            with self.subTest(name=name):
+                self.assertTrue(manager.lightweight_document_path(name, "skills"))
+        for name in ("skill-package.json", "other.md", "tests/fixture.md", "tools/input.md",
+                     "docs/config.yaml", "docs/input.json", "skills/first/config.json",
+                     "skills/first/script.py", "docs.md", "AGENTS.yaml"):
+            with self.subTest(name=name):
+                self.assertFalse(manager.lightweight_document_path(name, "skills"))
+        self.assertTrue(manager.lightweight_document_path("personal/first/SKILL.md", "personal"))
+        self.assertFalse(manager.lightweight_document_path("skills/first/SKILL.md", "personal"))
+
+    def test_document_move_and_deletion_use_structural_check(self):
+        for name in ("README.md", "AGENTS.md", "docs/old.md", "docs/archive/deleted.md"):
+            self.write(name, "original document\n")
+        self.commit(self.source, "tracked documents")
+        git(self.source, "push", "origin", "main")
+        worktree = self.prepare()
+        self.write("README.md", "updated navigation\n", worktree)
+        self.write("AGENTS.md", "updated rules\n", worktree)
+        moved = worktree / "docs/guides/moved.md"
+        moved.parent.mkdir()
+        (worktree / "docs/old.md").rename(moved)
+        (worktree / "docs/archive/deleted.md").unlink()
+        result = self.package.verify("trial")
+        self.assertEqual(result["status"], "verified")
+        self.assertEqual([check["command"] for check in result["checks"]], [["package-discovery"]])
+
+    def test_machine_input_and_code_deletion_run_regression(self):
+        for run in ("machine-input", "code-deletion"):
+            with self.subTest(run=run):
+                worktree = self.prepare(run)
+                if run == "machine-input":
+                    self.write("docs/generator.yaml", "executable-input: true\n", worktree)
+                else:
+                    (worktree / "tools/skill_package.py").unlink()
+                result = self.package.verify(run)
+                self.assertEqual(result["status"], "verified")
+                self.assertEqual([check["command"] for check in result["checks"]],
+                                 [["package-discovery"], [sys.executable, "-c", "pass"]])
+
+    def test_machine_markdown_move_does_not_hide_deleted_input(self):
+        self.write("tools/input.md", "generator input\n")
+        self.commit(self.source, "tracked machine input")
+        git(self.source, "push", "origin", "main")
+        worktree = self.prepare()
+        (worktree / "docs").mkdir()
+        (worktree / "tools/input.md").rename(worktree / "docs/input.md")
+        git(worktree, "add", "--", "tools/input.md", "docs/input.md")
+        base = self.package.load_run("trial")[1]["base"]
+        self.assertEqual(git(worktree, "diff", "--find-renames", "--name-only", base), "docs/input.md")
+        result = self.package.verify("trial")
+        self.assertEqual(result["status"], "verified")
+        self.assertEqual([check["command"] for check in result["checks"]],
+                         [["package-discovery"], [sys.executable, "-c", "pass"]])
+
     def test_document_only_change_uses_structural_check(self):
         worktree = self.prepare()
         self.add_skill(worktree, "future-document")
@@ -532,7 +645,7 @@ class Transactions(unittest.TestCase):
         declared = manager.read_json(ROOT / "skill-package.json")["upstream_skills"]
         self.assertTrue({"tdd", "code-review", "codebase-design", "grill-with-docs", "to-spec",
                          "to-tickets", "grilling", "domain-modeling", "find-skills",
-                         "manage-skills"}.issubset(declared))
+                         "manage-skills", "setup-matt-pocock-skills"}.issubset(declared))
 
     def test_missing_dependency_cannot_report_checked(self):
         self.install.mkdir(parents=True)

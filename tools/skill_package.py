@@ -29,8 +29,9 @@ def process(args, cwd=None, env=None, timeout=120):
                           encoding="utf-8", errors="replace", timeout=timeout)
 
 
-def git(root, *args, check=True):
-    result = process(["git", "-C", str(root), *args])
+def git(root, *args, check=True, optional_locks=True):
+    command = ["git", *([] if optional_locks else ["--no-optional-locks"]), "-C", str(root), *args]
+    result = process(command)
     if (result.returncode and args and args[0] == "merge" and
             any(message in result.stderr for message in ("Author identity unknown", "Committer identity unknown"))):
         identity = process(["git", "-C", str(root), "log", "-1", "--format=%an%x00%ae"])
@@ -40,7 +41,7 @@ def git(root, *args, check=True):
             for key, value in {"GIT_AUTHOR_NAME": name, "GIT_AUTHOR_EMAIL": email,
                                "GIT_COMMITTER_NAME": name, "GIT_COMMITTER_EMAIL": email}.items():
                 env.setdefault(key, value)
-            result = process(["git", "-C", str(root), *args], env=env)
+            result = process(command, env=env)
     if check and result.returncode:
         raise PackageError(result.stderr.strip() or result.stdout.strip())
     return result
@@ -84,6 +85,12 @@ def content_digest(root, names):
 
 def digest(root):
     return content_digest(root, files(root))
+
+
+def lightweight_document_path(name, skills_root):
+    return (name in {"README.md", "AGENTS.md"} or
+            (name.startswith(skills_root + "/") and name.endswith((".md", ".yaml"))) or
+            (name.startswith("docs/") and name.endswith(".md")))
 
 
 def snapshot(root, destination):
@@ -243,7 +250,7 @@ def manager_json(cli, *args):
 
 class Package:
     def __init__(self, root):
-        self.root = Path(git(Path(root).resolve(), "rev-parse", "--show-toplevel").stdout.strip())
+        self.root = Path(git(Path(root).resolve(), "rev-parse", "--show-toplevel", optional_locks=False).stdout.strip())
         self.policy = read_json(self.root / "skill-package.json")
         if self.policy.get("schema") != 1 or self.policy.get("publish") != "automatic":
             raise PackageError("Unsupported package policy")
@@ -253,10 +260,10 @@ class Package:
         self.skills_root = contained(self.root, self.policy["skills_root"])
         if self.skills_root == self.root or self.skills_root.name == ".git":
             raise PackageError("Skills root must be a package subdirectory")
-        common = git(self.root, "rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()
+        common = git(self.root, "rev-parse", "--path-format=absolute", "--git-common-dir", optional_locks=False).stdout.strip()
         self.common = Path(common)
         self.state_root = self.common / "workflow-state"
-        actual = git(self.root, "remote", "get-url", "origin").stdout.strip()
+        actual = git(self.root, "remote", "get-url", "origin", optional_locks=False).stdout.strip()
         if actual.rstrip("/").removesuffix(".git") != self.policy["remote"].rstrip("/").removesuffix(".git"):
             raise PackageError("Origin does not match authorized package remote")
 
@@ -335,8 +342,9 @@ class Package:
         missing = [name for name, version in upstream.items() if not version["fingerprint"]]
         changed = [name for name, version in upstream.items()
                    if version["fingerprint"] != previous.get(name, {}).get("fingerprint")]
-        return {"source": str(self.root), "head": git(self.root, "rev-parse", "HEAD").stdout.strip(),
-                "dirty": bool(git(self.root, "status", "--porcelain").stdout),
+        return {"source": str(self.root), "head": git(self.root, "rev-parse", "HEAD", optional_locks=False).stdout.strip(),
+                "dirty": bool(git(self.root, "status", "--porcelain", optional_locks=False).stdout),
+                "observation": "unlocked",
                 "skills": self.discover(), "pending": runs,
                 "installation": self.installation(install_root, manager_owned),
                 "installation_manager": "skills-manager" if manager_owned else "legacy-source-links",
@@ -469,11 +477,9 @@ class Package:
                 state.setdefault("upstream_evaluated", {})[name] = version
         checks = [{"command": ["package-discovery"], "exit_code": 0}]
         env = dict(os.environ, SKILL_PACKAGE_CANDIDATE=str(worktree), PYTHONDONTWRITEBYTECODE="1")
-        changed = set(filter(None, git(worktree, "diff", "--name-only", "-z", state["base"]).stdout.split("\0")))
+        changed = set(filter(None, git(worktree, "diff", "--no-renames", "--name-only", "-z", state["base"]).stdout.split("\0")))
         changed.update(filter(None, git(worktree, "ls-files", "--others", "--exclude-standard", "-z").stdout.split("\0")))
-        needs_regression = any(not (name == "README.md" or
-                                   (name.startswith(self.policy["skills_root"] + "/") and
-                                    name.endswith((".md", ".yaml")))) for name in changed)
+        needs_regression = any(not lightweight_document_path(name, self.policy["skills_root"]) for name in changed)
         commands = [[sys.executable if arg == "{python}" else arg for arg in command]
                     for command in state["policy"]["checks"]] if needs_regression else []
         if needs_regression:
@@ -906,10 +912,12 @@ def main():
             runtime = Path(package.load_run(args.run)[1]["runtime"]).resolve()
             if Path(__file__).resolve() != runtime:
                 raise PackageError(f"Use the pinned execution tool for this run: {runtime}")
+        if args.action == "inspect":
+            result = package.inspect(args.install_root, manager_owned=True)
+            print(json.dumps(result, ensure_ascii=False))
+            return 0
         with package.transaction():
-            if args.action == "inspect":
-                result = package.inspect(args.install_root, manager_owned=True)
-            elif args.action == "structure":
+            if args.action == "structure":
                 if args.validator is None or args.validation_python is None:
                     raise PackageError("structure needs --validator and --validation-python")
                 result = package.structure(args.validator, args.validation_python)
