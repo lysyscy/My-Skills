@@ -9,16 +9,16 @@ Status: living
 ## 当前入口
 
 - [improve-workflow](skills/improve-workflow/SKILL.md)：说“复盘并优化个人工作流”，复用 Matt retro，提炼并分配通用与项目候选，按具体能力缺口评估外部技能或参考；维护个人包、未来技能和入口自身，验证后自动发布并同步本机。只要求分析时保持只读。选择方法回[候选归属与外部能力](skills/improve-workflow/references/improvement-selection.md)。
-- [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：已确认的个人实施、动态分派、模型限制、验证策略与评审节奏。执行规则只在这里维护。
+- [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：个人实施的唯一入口，普通模式默认、整体统筹按采用授权启用；验证深度按实际风险选择。执行及收尾规则只在这里维护。
 - `skills/implement-solo-spec/agents/openai.yaml`：保留显式调用策略，随技能源维护。
 - [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：个人基础约定接入技能，先核必要绑定，按实际缺口展开，复用 Matt 配置与项目现有入口；历史试跑见下文，长期效果仍待观察。
 - [文档维护约定](skills/setup-solo-workflow/references/document-maintenance.md)：接入技能与项目条件入口可读取的通用方法，具体目录和例外由项目维护。
 
 ## 已定方向
 
-沿用 Matt 的需求澄清、规格、拆票和两轴审查方法。Matt setup 配置票源、状态词汇与领域资料；个人 setup 接好持续维护与验证的基础约定；implement-solo-spec 协调整个 effort 的实施。个人接入通过仓内条件指针引用 implement-solo-spec 的普通改动、验证和输入接续规则，日常执行无需重跑 setup。已明确采用该技能的 effort 可整体或按授权批次实施，新对话沿用采用记录与累计评审边界。
+沿用 Matt 的需求澄清、规格、拆票和两轴审查方法。Matt setup 配置票源、状态词汇与领域资料；个人 setup 接好持续维护与验证的基础约定；implement-solo-spec 统一普通模式与整体统筹模式的实施入口。个人接入通过仓内条件指针引用 implement-solo-spec 的普通改动、验证和输入接续规则，日常执行无需重跑 setup。已明确采用整体统筹模式的 effort 可整体或按授权批次实施，新对话沿用采用记录与累计评审边界。
 
-接入先核项目配置：有效配置或等价约定直接复用，缺失或需变更的 Matt 配置按 `setup-matt-pocock-skills` 原版处理，再由 `setup-solo-workflow` 接好入口。随后按需求进入 `grill-with-docs` → `to-spec` → `to-tickets` → 实施与人工验收；普通小改动按当前请求执行。老项目保留有效配置、历史和活动工作，只补确认的缺口。Matt 技能原版保持独立，个人技能不复制其访谈、规格或票模板。
+接入先核项目配置：有效配置或等价约定直接复用，缺失或需变更的 Matt 配置按 `setup-matt-pocock-skills` 原版处理，再由 `setup-solo-workflow` 接好入口。随后按当前输入选择需要的澄清、规格或拆票阶段，明确局部需求可直接实施；模式选择与验证尺度回个人执行入口。老项目保留有效配置、历史和活动工作，只补确认的缺口。Matt 技能原版保持独立，个人技能不复制其访谈、规格或票模板。
 
 个人技能负责通用方法；具体项目的适配文档负责规格与票源、权威资料、测试命令、数据和服务约束。本项目不收集各仓业务规则或维护项目命令副本。
 
