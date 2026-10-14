@@ -1,61 +1,13 @@
-Status: living
-
 # 个人 Agent 工作流
 
-本项目维护跨项目的个人技能与工作流。Matt 原版技能保持独立，个人调整只针对真实运行中已经确认的摩擦；各产品项目维护自己的业务、代码、测试与授权资料。
+本仓维护单人 Agent 协作的个人技能与共享方法。Matt 原版保持独立；项目各自维护业务、代码、验收与授权。
 
-用户目标：设计基于 Matt Pocock 技能体系的个人基础约定接入，让 Agent 自己维护必要的目录和文档，用户集中处理需求、功能实现与人工测试。
+- [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：接入、修复项目绑定及获批的专项文档迁移。
+- [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：显式启动或接续实施。普通已授权任务由项目绑定读取同一 [execution.md](skills/implement-solo-spec/references/execution.md)，不必先建规格或拆票；复杂统筹按采用授权触发。
+- [improve-workflow](skills/improve-workflow/SKILL.md)：按真实证据复盘；获准个人包维护才进入固定版本的包事务，只读分析止于结论。
 
-## 当前入口
+本仓入口见 [工作流绑定](docs/agents/workflow.md)，当前结构见 [架构](docs/architecture.md)。文档受影响时读 [日常维护](skills/setup-solo-workflow/references/document-maintenance.md)，新落点或专项迁移再读对应参考。项目只绑定来源、事实主人、实际验收/隔离/保存机制，不复制通用正文。
 
-- [improve-workflow](skills/improve-workflow/SKILL.md)：说“复盘并优化个人工作流”，复用 Matt retro，提炼并分配通用与项目候选，按具体能力缺口评估外部技能或参考；维护个人包、未来技能和入口自身，验证后自动发布并同步本机。只要求分析时保持只读。选择方法回[候选归属与外部能力](skills/improve-workflow/references/improvement-selection.md)。
-- [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：个人实施的唯一入口，普通模式默认、整体统筹按采用授权启用；验证深度按实际风险选择。执行及收尾规则只在这里维护。
-- `skills/implement-solo-spec/agents/openai.yaml`：保留显式调用策略，随技能源维护。
-- [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：个人基础约定接入技能，先核必要绑定，按实际缺口展开，复用 Matt 配置与项目现有入口；历史试跑见下文，长期效果仍待观察。
-- [文档维护约定](skills/setup-solo-workflow/references/document-maintenance.md)：接入技能与项目条件入口可读取的通用方法，具体目录和例外由项目维护。
+维护来源为 [lysyscy/My-Skills](https://github.com/lysyscy/My-Skills)。授权及检查以 [清单](skill-package.json) 为准；具体事务与恢复见 [包操作](skills/improve-workflow/references/package-operations.md)。My Skills 拥有维护源，Skills Manager 拥有中央库和 Agent 分发。普通新会话仅定位实际需要的规则，不自动更新或部署；在途运行保持固定 entry/runtime。
 
-## 已定方向
-
-沿用 Matt 的需求澄清、规格、拆票和两轴审查方法。Matt setup 配置票源、状态词汇与领域资料；个人 setup 接好持续维护与验证的基础约定；implement-solo-spec 统一普通模式与整体统筹模式的实施入口。个人接入通过仓内条件指针引用 implement-solo-spec 的普通改动、验证和输入接续规则，日常执行无需重跑 setup。已明确采用整体统筹模式的 effort 可整体或按授权批次实施，新对话沿用采用记录与累计评审边界。
-
-接入先核项目配置：有效配置或等价约定直接复用，缺失或需变更的 Matt 配置按 `setup-matt-pocock-skills` 原版处理，再由 `setup-solo-workflow` 接好入口。随后按当前输入选择需要的澄清、规格或拆票阶段，明确局部需求可直接实施；模式选择与验证尺度回个人执行入口。老项目保留有效配置、历史和活动工作，只补确认的缺口。Matt 技能原版保持独立，个人技能不复制其访谈、规格或票模板。
-
-个人技能负责通用方法；具体项目的适配文档负责规格与票源、权威资料、测试命令、数据和服务约束。本项目不收集各仓业务规则或维护项目命令副本。
-
-普通任务由实现者同步相关活说明、注释和指针，主 Agent 核共有入口、验收及任务状态。维护随着实际改动完成；全仓审计、历史搬迁和测试体系改造另按需要授权，不变成固定的每票成本。
-
-接入设计的核验关注实际入口和行为：必要资料能定位、历史与活动工作能区分、普通任务能自行选择资料落点、重复接入复用已有约定。仅有技能文件或静态检查通过不足以证明真实使用已经省心；真实项目试跑仍由用户安排。
-
-隔离演练已覆盖 Matt 配置后的新项目接入、老项目重复接入及普通需求修订。新项目建立读取入口与后续资料落点，没有提前创建空规格、词汇表、ADR、票或测试；老项目保留现有票源和历史，普通执行者能够自行同步需求、待办与当前票。演练曾发现待办复制业务规则的问题，明确引用格式后复测：业务定义在权威处更新，活待办只保留引用、状态与下一步，旧任务范围与历史记录保留。这些结果验证了演练场景中的入口与行为，尚未证明长期维护效果或速度、token 收益。
-
-## 仓库维护与同步
-
-远端为 [lysyscy/My-Skills](https://github.com/lysyscy/My-Skills)，各电脑稳定 `main` 提供技能安装源。包策略在 [skill-package.json](skill-package.json)；[包操作](skills/improve-workflow/references/package-operations.md) 与 [管理工具](tools/skill_package.py) 负责检查、隔离准备、验证、发布及同步，按 `skills/` 的实际技能目录发现对象，无须逐项登记。Matt 上游保持独立。
-
-每轮优化在独立 `codex/` 分支和 worktree 完成，任一宿主都可按已确认授权发布；主线前进时整合和复验，普通推送不覆盖其他发布。已采用的任务保持固定执行版本，新版从下一轮启用。运行与执行快照在 Git common dir 的 `workflow-state/`，安装副本备份在技能发现目录之外，未完成状态可接续。
-
-新任务首次使用个人方法时按包操作区分只读检查和授权同步，再读取所需技能；dirty先保护并比较增量，不能整份旧文件覆盖新版。My Skills 保留完整维护源，Skills Manager 统一管理中央库、来源元数据与 Agent 部署。个人工具的 `sync-manager` 串行推进稳定源、预检中央库内容、调用 Skills Manager 更新及修复既有部署，最后核真实文件再关闭运行；失败保留待同步状态。新增技能默认只入库，已授权部署时用 `--deploy-new-to` 指定 Agent。保留已有技能 ID、预设及部署选择。换机先定位同一远端的完整维护仓，再核本机 Skills Manager；其他电脑未实际同步时保持未核实。`sync` 与 `confirm-install` 保留为分别核源和安装的诊断入口。
-
-常规单批与复杂、跨批任务的路由正文回 implement-solo-spec 的“普通改动”；setup负责接入，不是每轮开发的前置。Agent文档稳定内容在前、变化内容在后，规则回文档维护约定，项目入口只引用。
-
-本仓行为回归运行 `python -m unittest discover -s tests -v`，结构核验经[包操作的 structure 入口](skills/improve-workflow/references/package-operations.md#材料读取与结构校验)调用本机 skill-creator 的验证器；行为回归用临时仓和安装夹具。修改管理工具时同时保留旧回归并核自修改路径。检查通过不代替真实使用效果或跨电脑已同步证明。`.gitattributes` 统一提交为 LF；`.gitignore` 排除环境、缓存和凭据。
-
-修改接入行为时使用[接入场景验证](skills/setup-solo-workflow/references/setup-evaluation.md)及 `tests/setup_fixture.py`，在隔离项目核复用、冲突、未提交资料与重复接入，并采集实际读取反馈。夹具自身的破坏检测由既有 unittest 入口覆盖；Agent 产物的语义验收由本轮主 Agent 核实际差异。演练不作为每次项目接入的固定成本。
-
-## 安装现场与试跑记录
-
-2026-10-13 首次接入核实：当时两个用户级技能目录 `C:/Users/Administrator/.agents/skills/setup-solo-workflow`、`C:/Users/Administrator/.agents/skills/implement-solo-spec` 均为 junction，分别指向 `D:/dev/My-Skills/skills/` 下同名目录；实际技能内容与引用可达，个人维护源只有本仓这一份。原安装副本保留在 `C:/Users/Administrator/.agents/skill-install-backups/20261013-mtrl320`，仅供恢复。其他宿主仍须查实际链接、内容和引用，不能凭本记录认定已安装。
-
-历史记录：此前已接入 tutoring-scheduler，并结合 screen-honesty 收尾补齐完成状态核对、接入保存状态与临时现场处置；当轮记录为项目接入改动已写工作区、尚未提交，功能收尾、部署及归档分别保存。此前 setup-solo-workflow 通过独立环境 `C:/Users/Administrator/.agents/skill-validation-venv/Scripts/python.exe`（PyYAML 6.0.3）的 `quick_validate.py` 校验。本轮未重新验证这些项目、环境或保存状态。
-
-本次真实适配对象为 `D:/dev/mtrl-workbench`：复用已有 AGENTS、TAIL 票、delivery 业务资料与决策记录；通用方法改为条件指针，保留既有重构的串行授权范围。该仓执行器按整组选集及广泛输入签名复用，票与规则文档变化也可能使结果失效；个人规则须区分证据可复用与机器实际能力。
-
-此前文档轮的 28 项测试及 doc/byte/claim 检查通过，自动入口仍因未改动归档工具的旧钩子断言返回非零；该结果保留为无关既有失败，不能声称入口全绿。本次据此补清失败归因与范围边界，并要求普通收尾同步受影响的活说明后核最终输入，沿用原票及证据。本轮独立只读重复接入核对确认无需重跑Matt配置或新建资料骨架；隔离资料修订演练由执行者自主更新业务主人、活待办指针和原票追加记录，并保留功能未实现状态。主Agent核实实际仅改这三份夹具文件；相关/无关既有失败的两种场景完成了只读归因核对，没有执行工具搬运。这些证据验证当前入口和演练行为，尚不证明真实业务实施、跨批effort或长期省时/token收益。
-
-继续完善时保持 Matt 原版独立，按需查看相关上游变化，避免逐份技能长期合并。先用少量真实 effort 核对用户介入、等待、核验及返工成本，再决定是否调整规则；不承诺未经实测的速度或 token 收益。
-
-2026-10-13 后续真实试跑为 mtrl-workbench 的 TAIL-321 归档工具修复：一次完整双轴审查后又有三次聚焦复查，既检出真实恢复问题，也暴露了关闭责任不清和无发现轴被再次唤醒的成本。按本轮评估收紧为实现者批量修复自验、主 Agent 核证据并关闭，具体未决或未覆盖影响才追加对应审查；规则正文只在 implement-solo-spec 维护。同步明确读取停止条件、最终稳定状态验证和最少收尾记录。保留完整最终审查、隔离与有效回归、失败归因、项目授权和个人模型上限。本轮保持技能名称、输入范围及显式调用策略，本机 Matt 原版不动；没有实施通用入口改造。两项技能结构与引用检查通过，独立Agent gpt-6.1-sol/medium的七情景决策验证符合关闭、追加审查、授权批次、失败处理、证据复用及最少回执规则；这是只读决策演练，不证明真实运行遵循率或长期成本收益。
-
-新任务先按 implement-solo-spec 的“普通改动”判断路由并核项目采用授权；显式调用时提供已有规格或票入口，既有任务继续原授权。此前六类场景的指令核对、setup 收尾试跑及样本项目重复方法收敛均为历史证据，不能代替新项目行为验证。提交、发布与部署按每个项目当前授权执行。
-
-2026-10-13 gysgl 接入复盘后，setup 改为先核必要绑定、按缺口选段、精简项目适配和集中收尾；新建隔离演练覆盖老项目、旧规则冲突、未提交资料和重复接入。首轮同配置的旧版/初版候选各四场景通过，读取为 46/39 次、81,150/50,918 字节；两轮总耗时都约 2.5 分钟，不能据此认定速度提高。演练暴露的临时豁免进入长期入口已在针对性复测消除；仍发生的旧规格全文扩读促使明确短预览操作，并让演练读取与现有包入口同样默认限量、显示续读位置。机械检查覆盖内容/索引保留、空目录、越权提交、引用和重复接入；语义与最终回执另核，运行证据保存在当次包状态。gysgl 仅精简工作流绑定，其他成果保留，产品尚未实施；长期成本收益待真实使用观察。
+[历史试跑](docs/archive/2026-10-workflow-trials.md) 仅在追溯时读取，不证明今天安装、长期速度或Token收益。
