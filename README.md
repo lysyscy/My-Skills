@@ -4,6 +4,8 @@
 
 本仓 Python 工具只用标准库，由 `pyproject.toml` 和 `uv.lock` 管理；运行 `uv sync` 准备环境，项目检查经 `uv run` 执行。
 
+[GitHub Actions](.github/workflows/tests.yml) 在推送和 PR 时运行现有测试，使用 `.python-version` 指定的 Python；只检查，不执行发布、部署或技能同步。
+
 业务技能仅在各业务项目本机维护，不纳入本仓skills目录、Skills Manager中央库或自动发布。开发与跨项目方法继续沿现有管理、验证和同步流程；共享基础工具保持其原渠道。
 
 - [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：接入、修复项目绑定及获批的专项文档迁移。
