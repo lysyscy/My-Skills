@@ -2,6 +2,8 @@
 
 本仓维护单人 Agent 协作的个人技能与共享方法。Matt 原版保持独立；项目各自维护业务、代码、验收与授权。
 
+本仓 Python 工具只用标准库，由 `pyproject.toml` 和 `uv.lock` 管理；运行 `uv sync` 准备环境，项目检查经 `uv run` 执行。
+
 业务技能仅在各业务项目本机维护，不纳入本仓skills目录、Skills Manager中央库或自动发布。开发与跨项目方法继续沿现有管理、验证和同步流程；共享基础工具保持其原渠道。
 
 - [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：接入、修复项目绑定及获批的专项文档迁移。
