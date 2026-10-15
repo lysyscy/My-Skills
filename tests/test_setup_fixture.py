@@ -5,7 +5,7 @@ from pathlib import Path, PurePosixPath
 import shutil
 import unittest
 
-from setup_fixture import check, check_migration, consume, git, prepare, prepare_migration, put, read, summary
+from setup_fixture import check, check_migration, consume, git, link_directory, prepare, prepare_migration, put, read, summary
 
 
 class SetupFixtureTests(unittest.TestCase):
@@ -332,11 +332,10 @@ class RealResourceLayoutTests(unittest.TestCase):
             read_pinned_reference(self.catalog, record["owner"], resource)
 
     def test_actual_link_entry_and_foreign_same_name_preserve_owner(self):
-        from test_skill_package import manager
         record = self.catalog[0]
         link = self.root / "agent-link"
-        manager.link_directory(Path(record["entry"]).parent, link)
-        self.assertTrue(manager.linked(link))
+        link_directory(Path(record["entry"]).parent, link)
+        self.assertEqual(link.resolve(), Path(record["entry"]).parent.resolve())
         linked = dict(record, entry=str(link / "SKILL.md"))
         resource = next(iter(record["expected"]))
         foreign_root = self.root / "third-party" / record["owner"]
@@ -367,13 +366,12 @@ class RealResourceLayoutTests(unittest.TestCase):
             read_pinned_reference([record], record["owner"], resource)
 
     def test_linked_resource_cannot_escape_its_owner_package(self):
-        from test_skill_package import manager
         record = self.catalog[0]
         outside = self.root / "outside"
         outside.mkdir()
         resource = next(iter(record["expected"]))
         shutil.copyfile(Path(record["entry"]).parent / resource, outside / "real.md")
-        manager.link_directory(outside, Path(record["entry"]).parent / "references/escape")
+        link_directory(outside, Path(record["entry"]).parent / "references/escape")
         with self.assertRaisesRegex(ValueError, "outside owner"):
             read_pinned_reference([record], record["owner"], "references/escape/real.md")
 

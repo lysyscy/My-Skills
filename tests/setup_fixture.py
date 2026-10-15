@@ -6,11 +6,26 @@ of the generated project entrypoints remains with the evaluating agent.
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import time
+
+
+def link_directory(source, target):
+    """Create links only inside the temporary exercise, including Windows junctions."""
+    try:
+        target.symlink_to(source, target_is_directory=True)
+    except OSError:
+        if os.name != "nt":
+            raise
+        env = dict(os.environ, SKILL_LINK_SOURCE=str(source), SKILL_LINK_TARGET=str(target))
+        subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+                        "$ErrorActionPreference='Stop'; New-Item -ItemType Junction "
+                        "-Path $env:SKILL_LINK_TARGET -Target $env:SKILL_LINK_SOURCE | Out-Null"],
+                       env=env, check=True, capture_output=True)
 
 
 def git(root, *args):

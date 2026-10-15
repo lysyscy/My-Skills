@@ -1,4 +1,4 @@
 interface:
   display_name: "复盘并优化个人工作流"
-  short_description: "按真实证据复盘个人方法；只读分析止于报告，获准维护沿既有验证与发布流程"
-  default_prompt: "使用 $improve-workflow 复盘本次任务。遵守本次只读或实施边界；仅对获准的个人技能维护执行既有验证、发布与本机同步。"
+  short_description: "按真实证据复盘个人方法；获准维护时验证和保存候选，按权限发布与分发"
+  default_prompt: "使用 $improve-workflow 复盘本次任务。遵守本次只读、候选或发布边界；验证获准的个人技能修改，源由 Git 保存，分发由 Skills Manager 管理。"
