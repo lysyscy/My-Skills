@@ -13,6 +13,8 @@ description: 按真实证据复盘和优化个人工作流；只读分析止于�
 
 使用 [improvement-selection.md](references/improvement-selection.md) 区分规则缺口、入口失联、执行偏离、工具能力和历史迁移问题；明确旧机制为何不够、新机制替代什么、如何从产物/动作验证。没有有价值候选也可以结束，不为完成复盘而增加规则。
 
+已获准维护且选择层确认需要真实任务对照时，才读 [behavior-evaluation.md](references/behavior-evaluation.md)；普通任务与确定性修复绕过此分支。
+
 能力缺口读取 [capability-selection.md](references/capability-selection.md)。只影响具体项目的规则留项目，不把业务目录、票号、命令或历史问题写进全局；上游保持独立，不维护复制/翻译副本。
 
 ## 分析结束或进入获准维护

@@ -79,6 +79,8 @@ inspect 的 installation 给出中央库实际形态与 matches_source，不要�
 
 ## 核验与收尾
 
+只有选择层已触发的行为实验，才按 [behavior-evaluation.md](behavior-evaluation.md) 核最终内容与证据对应；输入或依赖变化重验受影响部分，只有提交元数据变化则复用。行为结论由维护 Agent 承担，不是 verify 的新增状态或 publish 自动闸门；普通任务和确定性修复不因此增加实验。
+
 工具分类只选择机械回归；指令或Markdown机器输入仍需对应行为验证。新 inspect CLI 已在写事务之外并禁用可选Git索引写回；无锁结果可能跨时点，不是可发布的事务凭证，并发变化时重读。structure会执行外部验证器，不能据此称严格只读。
 
 工具按最终差异选择机械验证：仅已识别技能文档、技能UI元数据、README、AGENTS或docs下Markdown变化时（新分类仅用于新运行；旧runtime对新路径照常跑原回归）检查目录与必要元信息；管理工具、检查、包策略和其他输入变化时执行包策略的回归及保存的旧回归。新增技能自动发现，完整YAML结构按本机 skill-creator 的 quick_validate.py核验。候选行为仍由Agent按实际改动判断，机械回归通过不代表所有决策正确。运行可恢复不等于任务完成。
