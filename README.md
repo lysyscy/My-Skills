@@ -2,6 +2,8 @@
 
 本仓维护单人 Agent 协作的个人技能与共享方法。Matt 原版保持独立；项目各自维护业务、代码、验收与授权。
 
+业务技能仅在各业务项目本机维护，不纳入本仓skills目录、Skills Manager中央库或自动发布。开发与跨项目方法继续沿现有管理、验证和同步流程；共享基础工具保持其原渠道。
+
 - [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：接入、修复项目绑定及获批的专项文档迁移。
 - [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：显式启动或接续实施。普通已授权任务由项目绑定读取同一 [execution.md](skills/implement-solo-spec/references/execution.md)，不必先建规格或拆票；复杂统筹按采用授权触发。
 - [improve-workflow](skills/improve-workflow/SKILL.md)：按真实证据复盘；获准个人包维护才进入固定版本的包事务，只读分析止于结论。
