@@ -47,7 +47,7 @@ def prepare(root, skill):
     skill = Path(skill).resolve()
     package = skill.parents[2]
     maintenance = skill.parent / "references/document-maintenance.md"
-    implement = package / "skills/implement-solo-spec/SKILL.md"
+    implement = package / "skills/implement-solo-spec/references"
     state = {"skill": str(skill), "started": time.time(), "cases": {}}
     for name in ("existing", "conflict", "dirty", "repeat"):
         project = root / name
@@ -77,8 +77,8 @@ def prepare(root, skill):
         if name == "repeat":
             with (project / "AGENTS.md").open("a", encoding="utf-8") as stream:
                 stream.write(f"生成/修改文档及任务收尾必须读 [维护方法]({maintenance.as_posix()})；项目绑定见 docs/agents/workflow.md。\n"
-                             f"普通任务读 [实施方法]({implement.as_posix()}) 的普通改动和验证与失败处理；拆票/接续读输入与分批接续；任何创建子代理前独立读模型与推理强度并显式配置；完整调度仅在用户明确采用并记录范围时执行。\n"
-                             f"新会话首次使用个人方法按 [{package.name} 包操作]({(package / 'skills/improve-workflow/references/package-operations.md').as_posix()}#新会话同步)检查同步一次；复盘个人方法用 improve-workflow。\n")
+                             f"普通授权任务读 [实施方法]({(implement / 'execution.md').as_posix()})；任何创建子代理前读 [委派规则]({(implement / 'delegation.md').as_posix()}) 并显式配置；明确采用跨批统筹时读 [统筹方法]({(implement / 'coordination.md').as_posix()})。\n"
+                             "新会话仅定位本次需要的规则及来源，不自动同步；复盘个人方法用 improve-workflow。\n")
             put(project, "docs/agents/workflow.md", "# 项目绑定\n现行业务 docs/product.md 原地维护；effort 在 .scratch/<feature>/spec.md 与 issues/，引用业务。\n"
                 "历史 .scratch/old/ 保留；票协议见 issues.md；领域见根词汇表与 adr/。\n"
                 "实现者同步相关活资料，主 Agent 整合共有入口，merger 唯一关票，全量测试 veto 保留。\n"
