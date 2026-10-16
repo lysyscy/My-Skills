@@ -2,6 +2,7 @@
   "schema": 1,
   "remote": "https://github.com/lysyscy/My-Skills.git",
   "branch": "main",
+  "ci_workflow": ".github/workflows/tests.yml",
   "skills_root": "skills",
   "upstream_skills": ["retro", "writing-for-agents", "implement", "implement-spec", "tdd", "code-review", "codebase-design", "grill-with-docs", "to-spec", "to-tickets", "grilling", "domain-modeling", "find-skills", "manage-skills", "setup-matt-pocock-skills"],
   "publish": "automatic",

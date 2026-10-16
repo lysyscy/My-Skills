@@ -14,6 +14,6 @@
 
 本仓入口见 [工作流绑定](docs/agents/workflow.md)，当前结构见 [架构](docs/architecture.md)。文档受影响时读 [日常维护](skills/setup-solo-workflow/references/document-maintenance.md)，新落点或专项迁移再读对应参考。项目只绑定来源、事实主人、实际验收/隔离/保存机制，不复制通用正文。
 
-维护来源为 [lysyscy/My-Skills](https://github.com/lysyscy/My-Skills)。授权及检查以 [清单](skill-package.json) 为准；维护步骤见 [包操作](skills/improve-workflow/references/package-operations.md)。My Skills 用普通 Git 编辑、验证和发布源，Skills Manager 管理中央库、Agent 分发和多设备备份。本仓工具只做结构、更新前及更新后的核验。普通新会话仅定位所需规则；旧运行保持固定版本，按当前请求决定是否发布或安装。
+维护来源为 [lysyscy/My-Skills](https://github.com/lysyscy/My-Skills)。授权及检查以 [清单](skill-package.json) 为准；维护步骤见 [包操作](skills/improve-workflow/references/package-operations.md)。完整发布同步依次核源与对应CI、官方Manager安装、更新检测及备份远端；跨设备恢复缺少基准时先校准。工具只核验，实际Git发布、Manager更新和备份动作由当前维护者执行。普通新会话仅定位所需规则；旧运行保持固定版本，按当前请求决定是否发布或安装。
 
 [历史试跑](docs/archive/2026-10-workflow-trials.md) 仅在追溯时读取，不证明今天安装、长期速度或Token收益。

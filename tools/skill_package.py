@@ -15,6 +15,8 @@ import shutil
 import stat
 import subprocess
 import sys
+from urllib.parse import urlsplit
+from urllib.request import Request, urlopen
 
 
 class PackageError(RuntimeError):
@@ -115,6 +117,16 @@ def manager_json(cli, *args):
     return value
 
 
+def github_runs(remote, revision):
+    url = urlsplit(remote.removesuffix('.git'))
+    if url.scheme != 'https' or url.netloc != 'github.com' or len(url.path.strip('/').split('/')) != 2:
+        raise PackageError('CI receipt requires an HTTPS GitHub source')
+    request = Request(f'https://api.github.com/repos{url.path}/actions/runs?head_sha={revision}&per_page=30',
+                      headers={'User-Agent': 'My-Skills-release-check'})
+    with urlopen(request, timeout=30) as response:
+        return json.load(response)['workflow_runs']
+
+
 class Package:
     def __init__(self, root):
         self.root = Path(git(Path(root).resolve(), "rev-parse", "--show-toplevel"))
@@ -174,16 +186,17 @@ class Package:
         if git(self.root, "rev-parse", "HEAD") != revision or git(self.root, "status", "--porcelain"):
             raise PackageError("Check installation from the clean source at the verified revision")
 
-    def committed_fingerprint(self, revision, name):
-        prefix = (Path(self.policy["skills_root"]) / name).as_posix() + "/"
-        tree = git(self.root, "ls-tree", "-r", "-z", revision, "--", prefix)
+    def committed_fingerprint(self, revision, name, root=None):
+        prefix = (Path(self.policy["skills_root"]) / name).as_posix() + "/" if root is None else name + "/"
+        root = self.root if root is None else root
+        tree = git(root, "ls-tree", "-r", "-z", revision, "--", prefix)
         resources = []
         for row in filter(None, tree.split("\0")):
             header, path = row.split("\t", 1)
             mode, kind, object_id = header.split()
             if mode not in {"100644", "100755"} or kind != "blob":
                 raise PackageError(f"Linked or unsupported committed skill resource: {path}")
-            blob = subprocess.run(["git", "--no-optional-locks", "-C", str(self.root), "cat-file", "blob", object_id],
+            blob = subprocess.run(["git", "--no-optional-locks", "-C", str(root), "cat-file", "blob", object_id],
                                   capture_output=True, timeout=120)
             if blob.returncode:
                 raise PackageError(f"Cannot read committed skill resource: {path}")
@@ -231,7 +244,7 @@ class Package:
                 raise PackageError(f"Ambiguous library skill: {record['name']}")
             records[record["name"]] = record
         agents = {agent["key"]: agent for agent in manager_json(cli, "agents", "list")}
-        return library, Path(repository["metadata_dir"]) / "skills", records, agents
+        return library, Path(repository["metadata_dir"]).resolve() / "skills", records, agents
 
     @staticmethod
     def selection(record):
@@ -302,12 +315,62 @@ class Package:
         return {"status": "installation_verified", "revision": revision, "library": str(library),
                 "deployments": deployments, "scope": "local files; host loading and other devices not checked"}
 
+    def confirm_source(self, revision):
+        self.require_revision(revision)
+        remote = git(self.root, 'ls-remote', '--exit-code', self.policy['remote'],
+                     'refs/heads/' + self.policy['branch']).split()
+        if not remote or remote[0] != revision:
+            raise PackageError('Source remote does not match the verified revision; inspect before installing')
+        workflow = self.policy.get('ci_workflow', '.github/workflows/tests.yml')
+        runs = [run for run in github_runs(self.policy['remote'], revision)
+                if run.get('head_sha') == revision and run.get('path') == workflow and run.get('event') == 'push']
+        if not runs or runs[0].get('status') != 'completed' or runs[0].get('conclusion') != 'success':
+            raise PackageError('Exact source commit CI has not succeeded; installation remains pending')
+        return {'status': 'source_verified', 'source_revision': revision, 'ci_url': runs[0].get('html_url')}
+
+    def confirm_distribution(self, cli, revision, plan):
+        source = self.confirm_source(revision)
+        installation = self.confirm_install(cli, revision, plan)
+        library, metadata, records, _ = self.manager_context(cli)
+        portable_revisions = True
+        for name in self.discover():
+            portable = read_json(metadata / (records[name]['id'] + '.json'))
+            if portable.get('source', {}).get('revision') != revision:
+                portable_revisions = False
+            checks = manager_json(cli, 'skills', 'check', name, '--force')
+            if (not isinstance(checks, list) or len(checks) != 1 or checks[0].get('name') != name
+                    or checks[0].get('update_status') != 'up_to_date' or checks[0].get('last_check_error')):
+                raise PackageError(f'Manager update detection is not healthy: {name}')
+        backup = manager_json(cli, 'git', 'status')
+        if Path(git(library, 'rev-parse', '--show-toplevel')).resolve() != library:
+            raise PackageError('Manager backup must be rooted in the actual central library')
+        if git(library, 'status', '--porcelain'):
+            raise PackageError('Manager backup contains uncommitted files')
+        actual_remote = git(library, 'remote', 'get-url', 'origin')
+        if not backup.get('remote_url') or actual_remote != backup['remote_url']:
+            raise PackageError('Manager backup remote differs from its registered remote')
+        head = git(library, 'rev-parse', 'HEAD')
+        remote = git(library, 'ls-remote', '--exit-code', 'origin', 'refs/heads/' + backup['branch']).split()
+        if not remote or remote[0] != head:
+            raise PackageError('Manager backup remote does not contain the current snapshot')
+        for name in self.discover():
+            if self.committed_fingerprint(head, name, library) != self.committed_fingerprint(revision, name):
+                raise PackageError(f'Manager backup omits or changes skill resources: {name}')
+            relative = (metadata / (records[name]['id'] + '.json')).relative_to(library).as_posix()
+            if json.loads(git(library, 'show', f'{head}:{relative}')) != read_json(library / relative):
+                raise PackageError(f'Manager backup source metadata differs: {name}')
+        return dict(source, status='distribution_verified', backup_revision=head,
+                    deployments=installation['deployments'],
+                    cross_device_detection='requires_receiver_verification' if portable_revisions else 'needs_calibration_after_restore',
+                    receiver_action='After restore, use official Manager update for affected skills, then check; unknown is not up-to-date',
+                    scope='published source CI, local deployments, pushed portable backup; other physical devices not checked')
+
 
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["structure", "preflight", "confirm-install"])
+    parser.add_argument("action", choices=["structure", "preflight", "confirm-install", "confirm-source", "confirm-distribution"])
     parser.add_argument("--source", type=Path, default=Path(__file__).resolve().parent.parent)
     parser.add_argument("--revision", help="Full verified commit SHA for installation checks")
     parser.add_argument("--skills-manager-cli", type=Path)
@@ -325,14 +388,17 @@ def main():
             if args.revision is None:
                 raise PackageError("Installation checks need --revision")
             cli = args.skills_manager_cli or skills_manager_cli()
-            if args.action == "preflight":
+            if args.action == 'confirm-source':
+                result = package.confirm_source(args.revision)
+            elif args.action == "preflight":
                 result = package.preflight(cli, args.revision)
             else:
                 if args.plan is None:
                     raise PackageError("confirm-install needs --plan from the update preflight")
-                result = package.confirm_install(cli, args.revision, read_json(args.plan))
+                check = package.confirm_distribution if args.action == 'confirm-distribution' else package.confirm_install
+                result = check(cli, args.revision, read_json(args.plan))
         print(json.dumps(result, ensure_ascii=False))
-        return 0 if result["status"] in {"verified", "preflight_ok", "installation_verified"} else 1
+        return 0 if result["status"] in {"verified", "preflight_ok", "installation_verified", "source_verified", "distribution_verified"} else 1
     except (PackageError, OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired) as error:
         print(json.dumps({"status": "blocked", "error": str(error)}, ensure_ascii=False))
         return 1

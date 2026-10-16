@@ -158,7 +158,7 @@ class SourceChecks(PackageFixture):
         help_result = subprocess.run([sys.executable, str(ROOT / "tools/skill_package.py"), "--help"],
                                      capture_output=True, text=True)
         choices = re.search(r"\{([^}]+)\}", help_result.stdout).group(1).split(",")
-        self.assertEqual(set(choices), {"structure", "preflight", "confirm-install"})
+        self.assertEqual(set(choices), {"structure", "preflight", "confirm-install", "confirm-source", "confirm-distribution"})
         for action in ("prepare", "verify", "publish", "resume", "sync", "sync-manager", "read", "inspect"):
             result = subprocess.run([sys.executable, str(ROOT / "tools/skill_package.py"), action,
                                      "--source", str(self.home / "absent-source")], capture_output=True, text=True)
