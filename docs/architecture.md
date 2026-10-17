@@ -1,5 +1,7 @@
 # 当前个人包结构
 
+项目环境政策的唯一主人是 setup-solo-workflow/references/environment.md；setup 接入与普通 execution 按触发读取，项目入口保留实际工具/测试契约。环境检查和准备复用原生管理器，不新增环境技能或包根运行依赖。
+
 开发与跨项目方法的三个技能目录及技能内参考在 skills/；独立资源随所属技能分发，discover 只发现含 SKILL.md 的目录。普通实施核心是 implement-solo-spec/references/execution.md；统筹、委派与专项验证按各自触发读取。setup 拥有日常文档方法、统一目录职责及专项迁移；improve 拥有候选归属、能力选择和个人包维护核验。
 
 skill-package.json 是授权、远端、分支、CI工作流、依赖保护及检查的唯一配置。tools/skill_package.py 提供结构、更新前、源发布、本机安装及分发后验。核验读取 Skills Manager、GitHub CI结果、真实文件与Git对象；更新检测会刷新Manager自身检查缓存。工具不执行安装或备份推送。根工具不随独立技能安装，普通规则读取不依赖它，也不假设跨技能物理相邻。
