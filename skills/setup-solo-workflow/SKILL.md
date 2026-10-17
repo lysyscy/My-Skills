@@ -15,7 +15,7 @@ description: 为项目接入个人工作流、修复实际绑定，或执行已�
 
 接入或新建本机 Python 项目时，依赖声明放项目 `pyproject.toml`、精确版本由 `uv.lock` 锁定、环境放项目 `.venv`；默认 Python 3.15，兼容例外写明。用 `uv sync` 同步、`uv run` 执行；项目包留在项目环境，uv 下载缓存可以共享。
 
-新项目有实质内容时采用 [document-layout.md](references/document-layout.md) 的固定职责。老项目不在一次普通接入中顺手搬迁；目录统一需要专项迁移清单。没有内容不建空目录、词汇表、ADR、票或台账。
+新项目有实质内容时采用 [document-layout.md](references/document-layout.md) 的固定职责；生成或清理日志、导出、缓存、隔离副本与恢复点时，读取其中「工程文件与各类产物」。老项目不在一次普通接入中顺手搬迁；目录统一需要专项迁移清单。没有内容不建空目录、词汇表、ADR、票或台账。
 
 ## 建立最小绑定
 
