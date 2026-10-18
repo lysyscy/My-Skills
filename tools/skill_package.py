@@ -387,16 +387,17 @@ def main():
         else:
             if args.revision is None:
                 raise PackageError("Installation checks need --revision")
-            cli = args.skills_manager_cli or skills_manager_cli()
             if args.action == 'confirm-source':
                 result = package.confirm_source(args.revision)
-            elif args.action == "preflight":
-                result = package.preflight(cli, args.revision)
             else:
-                if args.plan is None:
-                    raise PackageError("confirm-install needs --plan from the update preflight")
-                check = package.confirm_distribution if args.action == 'confirm-distribution' else package.confirm_install
-                result = check(cli, args.revision, read_json(args.plan))
+                cli = args.skills_manager_cli or skills_manager_cli()
+                if args.action == "preflight":
+                    result = package.preflight(cli, args.revision)
+                else:
+                    if args.plan is None:
+                        raise PackageError("confirm-install needs --plan from the update preflight")
+                    check = package.confirm_distribution if args.action == 'confirm-distribution' else package.confirm_install
+                    result = check(cli, args.revision, read_json(args.plan))
         print(json.dumps(result, ensure_ascii=False))
         return 0 if result["status"] in {"verified", "preflight_ok", "installation_verified", "source_verified", "distribution_verified"} else 1
     except (PackageError, OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired) as error:
