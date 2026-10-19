@@ -12,6 +12,8 @@
 - [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：显式启动或接续实施。普通已授权任务由项目绑定读取同一 [execution.md](skills/implement-solo-spec/references/execution.md)，不必先建规格或拆票；复杂统筹按采用授权触发。
 - [improve-workflow](skills/improve-workflow/SKILL.md)：按真实证据复盘；获准个人包维护才验证和保存候选，按权限使用 Git 与 Skills Manager，只读分析止于结论。
 
+- [project-handoff](skills/project-handoff/SKILL.md)：个人维护的交接保存与提醒；完整资源和计数器同源维护，上游来源及许可见技能维护页。
+
 本仓入口见 [工作流绑定](docs/agents/workflow.md)，当前结构见 [架构](docs/architecture.md)。文档受影响时读 [日常维护](skills/setup-solo-workflow/references/document-maintenance.md)，新落点或专项迁移再读对应参考。项目只绑定来源、事实主人、实际验收/隔离/保存机制，不复制通用正文。
 
 维护来源为 [lysyscy/My-Skills](https://github.com/lysyscy/My-Skills)。授权及检查以 [清单](skill-package.json) 为准；维护步骤见 [包操作](skills/improve-workflow/references/package-operations.md)。完整发布同步依次核源与对应CI、官方Manager安装、更新检测及备份远端；跨设备恢复缺少基准时先校准。工具只核验，实际Git发布、Manager更新和备份动作由当前维护者执行。普通新会话仅定位所需规则；旧运行保持固定版本，按当前请求决定是否发布或安装。
