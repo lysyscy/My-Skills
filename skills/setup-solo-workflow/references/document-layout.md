@@ -1,57 +1,93 @@
 # 项目目录、文档与产物职责
 
-新建资料、确定落点或专项迁移时使用；固定职责按实质内容创建，不把示例当项目默认业务。
+用户于2026-10-19确定的跨项目工作区契约。新项目直接采用；老项目的新任务沿本契约分类，已有运行路径、工具默认值和在途任务先保留为具名迁移例外，切换消费者并验证后退出。固定的是类型、路径与结束动作，有内容才创建目录。
 
 ## 固定位置、按需创建
 
 ```text
 project/
-├── README.md                         # 项目目的、使用入口、文档导航
-├── AGENTS.md                         # Agent 边界和条件指针；已有宿主入口按接入方案兼容
-├── GLOSSARY.md                       # 可选：已解决的项目领域术语
-├── GLOSSARY-MAP.md                   # 仅真实多上下文需要，指向各上下文词汇表
+├── README.md                         # 人的入口、使用及目录导航
+├── AGENTS.md                         # Agent边界及按条件读取的指针
+├── GLOSSARY.md                       # 确有领域术语时；多上下文使用GLOSSARY-MAP.md
+├── src/                              # 自有源码；多组件在apps/<组件>/下采用同一结构
+├── tests/fixtures/                   # 自动测试与经脱敏的长期回归样本
+├── resources/                        # 随产品部署的模板、静态资源及模型等运行本体
+├── tools/                            # 可复用的开发、验证及维护脚本
+├── ops/                              # 部署、服务起停、迁移及恢复入口
 ├── docs/
-│   ├── agents/
-│   │   ├── workflow.md               # 个人方法来源和本项目最小绑定
-│   │   ├── issue-tracker.md          # 确有任务跟踪协议时建立
-│   │   ├── domain.md                 # 确需提供 Matt 领域消费配置时建立
-│   │   └── triage-labels.md          # 仅实际使用相应能力时建立
-│   ├── requirements.md              # 现行需求/业务定义的入口和正文
-│   ├── architecture.md              # 现行系统结构/资料派生结构
-│   ├── adr/0001-<slug>.md            # 有价值的重要决策，不是每次提交记录
-│   ├── guides/<topic>.md             # 面向实际操作的长期指南
-│   ├── reference/<topic>.md          # 按需来源、外部规范和参考解释
-│   ├── status.md                    # 可选：确有跨任务当前态导航需要才建立
-│   └── archive/<topic-or-period>/    # 可选：已结束且值得保存的历史
-├── .scratch/<effort>/                # 使用本地任务跟踪时的活动工作资料
-│   ├── spec.md                      # 有规格需要才创建
-│   ├── issues/01-<slug>.md           # 真正拆票后才创建；沿 Matt 本地契约
-│   └── evidence.md                  # 确有需持久保存的验收/复盘证据才建立
-└── .artifacts/<effort>/<run>/         # 可选默认临时产物，优先服从项目真实工具配置
+│   ├── agents/                       # workflow、issue-tracker、domain及必要triage-labels
+│   ├── requirements.md              # 当前需求；过大时拆同名目录
+│   ├── architecture.md              # 当前结构；过大时拆同名目录
+│   ├── status.md                    # 确有跨任务状态/交接需要才建立
+│   ├── adr/0001-<slug>.md            # 重要决定；既有编号不重写
+│   ├── guides/<topic>.md             # 长期操作方法
+│   ├── reference/<topic>.md          # 长期参考与来源解释
+│   └── archive/<effort>/             # 已结束且有独有价值的过程正文
+├── .scratch/<effort>/                # 活动任务：spec、map、research、questions、evidence、handoff及issues
+├── .artifacts/
+│   ├── active/<effort>/<run>/        # 当前运行的开发验证产物
+│   │   └── <kind>/                  # logs、reports、screenshots、traces、exports、downloads、work、recovery
+│   └── archive/<effort>/             # 必要的本机原始证据；retention.json约束保留期限
+├── data/source/                     # 用户原始输入，默认不提交、不覆盖
+├── data/reference/                  # 经确认的长期参考数据；隐私数据不入Git
+├── exports/<deliverable>/            # 交付给用户的成品及必要说明
+├── var/                             # 程序运行数据；整体忽略Git
+│   ├── data/                        # 数据库、上传文件等不可随意丢失的数据
+│   ├── state/                       # 登录凭证、会话、进度与恢复游标
+│   ├── cache/                       # 能按明确方法重建的缓存
+│   ├── log/                         # 服务运行日志
+│   ├── tmp/                         # 单次运行临时文件
+│   └── backups/                     # 运行数据的必要恢复点
+└── dist/                            # 可重建构建产物；正式在用版本按部署协议退出
 ```
 
-新项目建立必要的 README、宿主入口和实际绑定。其他路径是**固定职责的可选位置**，不意味着先建整棵树。不存在的 glossary/ADR 不构成接入失败，保持 Matt 的按需创建原则。
+`src/`等是自有工程默认；框架、包管理器、技能分发或宿主明确规定的布局（如技能的SKILL.md/scripts/references/assets、Python包、.venv、node_modules、构建工具的build/）服从其真实契约，在项目workflow中记录具体路径与理由。仅“以前这样放”“目录已存在”不构成永久例外。新项目不另造scratch、artifacts、temp、local等同义收容目录；已有例外不要求通过清空目录立即统一。
 
 ### 工程文件与各类产物
 
-本契约约束资料职责，不把上图当整个项目的目录白名单。源码、测试、工具、依赖声明与锁文件、编译和宿主配置沿实际工具契约落位；运行数据、证书、在用构建及用户交付物沿项目配置，不能为了整理目录移动或删除。
+先按本表定类型，再创建实际输出；同一文件只保留一份权威。新类型先补本表及路径检查，再让生成入口使用；不临时发明落点。一次性脚本不因可执行而成为tools中的长期工具。
 
-| 类别 | 默认落点与结束条件 |
-|---|---|
-| 源码、测试、可复用工具与配置 | 项目实际工程位置，随对应实现维护；同一功能优先复用现有入口 |
-| 活动范围、规格和票 | `.scratch/<effort>/`；只保存任务输入和必要结论，日志、下载、截图及工作副本归下面的产物位置 |
-| 日志、截图、轨迹、导出与解析结果 | 服从项目工具的真实输出配置；没有约定时用 `.artifacts/<effort>/<run>/`。同一证据保留一份，引用指向该份 |
-| 隔离源码、构建、临时数据与一次性脚本 | 项目既有隔离位置或系统临时目录；确需留在任务产物中时放该 run 的 `work/`。验证或诊断结束即释放，无接续用途的完整工作副本不长期保存 |
-| 依赖环境和下载缓存 | 包管理器的既定位置；隔离验证优先复用安全的现有依赖或缓存。任务结束释放副本依赖，不误删共享环境或正式运行依赖 |
-| 恢复点 | 仅对真实数据损失风险、不可逆变更或独有未提交内容建立所需最小恢复点，写明对应动作和退出条件；已有 Git 历史或有效恢复点足够时直接复用 |
+| 类型 | 固定落点 | 生命周期结束动作 |
+|---|---|---|
+| 源码、测试、可复用工具、运行资源 | src、tests、tools、resources；运维入口在ops | 随实现维护；功能退役同批修消费者并删除，必要来源由Git保存 |
+| 依赖声明、锁、编译及宿主配置 | 对应工具要求的项目/组件根；依赖环境沿管理器目录 | 声明与锁同行；任务副本依赖用完释放，共享缓存按管理器清理 |
+| 凭据与本机配置 | 根.env或宿主凭据存储；动态登录状态在var/state | 不入Git；轮换/失效即撤销或删除，不能复制进证据或归档 |
+| 当前业务、架构、术语、指南、参考、重要决定 | 上述docs位置与GLOSSARY | 修改唯一正文与引用；被替代的独有历史移docs/archive，废弃副本删除 |
+| 任务规格、调查、澄清、地图、票、持久证据、交接 | .scratch/<effort>/{spec,research,questions,map,evidence,handoff}.md及issues/ | 任务全部验收后提炼现行结论；有独有价值的正文归docs/archive/<effort>，其余删除，原活动目录实际退出 |
+| 一次开发验证的日志、报告、截图、轨迹、测试导出与下载 | .artifacts/active/<effort>/<run>/{logs,reports,screenshots,traces,exports,downloads}/ | 该次运行结束即删无价值产物；必要原始证据归.artifacts/archive/<effort>/<run>，只选留logs/reports/screenshots/traces/exports/recovery；work删除、长期需要的下载归data/source，活动run实际退出 |
+| 一次性脚本、评审diff、临时源代码/构建/数据库副本 | 同一run的work/；原生临时API可使用系统临时目录 | 验证/诊断结束立即释放；临时进程、端口和worktree同时退出 |
+| 本次编辑或清理的恢复点 | 同一run的recovery/ | 风险窗口关闭且保存验证完成即删除；仍需回滚则转本机证据归档并记录具体退出条件，已有Git足够时不再复制 |
+| 必要本机原始证据 | .artifacts/archive/<effort>/<run>/，同effort的retention.json | 仅保留无法用提交和结论替代的最小证据，默认最多30天；到期同次检查处置，明确长期用途则迁为正式样本/数据，不无限续期整棵现场 |
+| 用户原始输入、长期参考数据 | data/source、data/reference | 按业务或用户确认的保留规则处置；任务结束不自动删除原件。测试样本脱敏后归tests/fixtures |
+| 用户成品 | exports/<deliverable>/ | 交付并确认可取得后按约定移交/清理；持续需要的成品由交付要求持有，不能当测试导出删掉 |
+| 运行数据库/上传、状态、缓存、服务日志 | var/{data,state,cache,log}/ | 数据随业务生命周期；状态失效即退役；缓存可重建才清；日志按项目配置轮转及到期清理 |
+| 程序临时文件、业务备份 | var/tmp、var/backups | 临时文件在成功/失败的finally中释放；备份在回滚/保留窗口关闭且恢复依据足够时删除 |
+| 构建产物 | dist/或工具强制输出目录 | 无用构建用完即删；在用构建待部署切换与回滚窗口结束再清 |
 
-生成产物前检查真实目标路径（含链接和 worktree 的 Git 目录），不能因为路径被忽略就把它当临时目录。新增或修改生成入口时同步默认路径、示例、清理和相关检查；项目在已有检查入口核产物位置与结束材料去向，避免只写禁止条款。检查须能检出一个错误落点，并接受正常 Git 元数据及没有活动任务的现场。
+`.git/`只放版本控制元数据；.scratch和.artifacts不是永久收容目录。数据、在用构建、活跃任务及他人未提交修改的退出条件由各自主人持有，不因本任务结束失去用途。未知归属或缺授权时说明具体缺口并保持未完成，不能假报已清理。
 
-`.git/` 专供版本控制元数据，不存放调试脚本、评审 diff、截图、测试输出或验证副本；现有宿主硬约束另按必要例外处理。`.scratch`、缓存和 `.artifacts` 也不是永久收容目录。
+### 创建、运行和结束
 
-收尾按实际用途选留：仍服务活动任务、明确复用样本、未决失败定位或尚需回滚的材料保留；问题已解决且结论和回归已覆盖时，退役冗余中间件、重复产物和工作副本。被引用、被检查存在、被算哈希或曾被读取，都不单独构成长期保留理由；未被读取也不能单独否定必要恢复点。唯一失败证据在归因及必要结论保存后重新评估，不无限期保护整棵现场。
+1. **开始。** 确认根、effort及run身份，读取项目例外、dirty和活动消费者。首次接入给实际生成入口、示例、.gitignore和检查接好固定路径；绑定本技能随包分发的scripts/workspace_check.py。正常任务不扫描全部历史正文。
+2. **生成。** 使用检查脚本paths给出的路径；先核绝对路径与链接目标。需要持久材料才建文件。`.scratch`只放任务Markdown和逐票资料，运行输出进对应kind；用户原件、凭据和共享依赖不当临时输入复制。
+3. **运行结束。** 成功与失败都在本次收尾释放临时资源。失败未归因时仅留最小必要原始证据；先脱敏，再在.artifacts/archive/<effort>/retention.json写reason和expires_on（YYYY-MM-DD，最长30天）。随后归档选留证据、删除其余并移出active的run；运行run-closed检查。
+4. **任务结束。** 核所有授权范围和真实验收；有效结论归现行主人，必要历史归docs/archive/<effort>，修引用并实际退出.scratch和active中的整个effort；运行closed检查。阶段完成仍有后续时保留有明确范围的活动任务，只结束本轮run。纯问答或没有产物时不造目录/归档件。
+5. **完成反馈。** 报实际删除/归档/保留位置、保留理由、退出条件及检查结果。清理/归档是完成动作，不是“以后注意”或额外待办；检查失败则本轮收尾未完成。检查只读取文件，实际迁移删除由当前负责人按授权执行，没有后台定时删除承诺。
 
-清理沿现有授权和项目安全要求：核真实绝对路径、活动消费者、进程、链接目标及独有内容，删除联接本身而非其共享目标，修正现行引用并验证目标退出。默认处理本任务产物；用户明确授权的专项清理可覆盖已核归属的旧任务。未知或活动内容暂留，只说明具体缺口。只为本次真实风险保留必要依据，不为清理再复制全部待删文件、建立另一套清单平台或追加无用途的过程文档。
+从本技能实际安装目录运行（不从业务cwd猜位置）：
+
+```text
+python <setup-solo-workflow>/scripts/workspace_check.py paths --root <project> --effort <slug> --run <run>
+python <setup-solo-workflow>/scripts/workspace_check.py check --root <project> --effort <slug> --phase active
+python <setup-solo-workflow>/scripts/workspace_check.py check --root <project> --effort <slug> --run <run> --phase run-closed
+python <setup-solo-workflow>/scripts/workspace_check.py check --root <project> --effort <slug> --phase closed
+```
+
+active检查本任务分类及本机证据归档到期；run-closed要求该run已退出active；closed要求本任务.scratch和active均不存在。三种检查都验证本机归档理由、期限及链接边界。它不证明语义分类、隐私脱敏、业务验收或全盘清理，项目已有检查与人工判断仍需完成。新任务开始与收尾均读取到期结果；没有正在执行的Agent时不会在截止时刻自动运行。
+
+项目.gitignore须忽略.artifacts、var、.env、依赖环境和可重建产物；.scratch按tracker需求跟踪，data/source及exports默认忽略且不得强制提交。既有更严格的隐私、原件或服务要求继续有效。原生工具输出不可配置时在workflow逐项记默认路径、消费者、生命周期与迁移/保留理由，不用一条“沿项目惯例”放开所有目录。
+
+未分类材料先判定其真实类型；确有新类别时维护本契约及检查。专项迁移按document-migration.md保护现有现场；按真实用途选留，不为清理再复制全部待删文件或建设第二套清单平台。
 
 `requirements.md` 或 `architecture.md` 确实过大时，固定入口仍保留，将不同主题的唯一正文拆入同名目录 `docs/requirements/` 或 `docs/architecture/`，入口只提供主题导航和必要跨主题约束。不能一部分项目用 `docs/product.md`、另一部分用 `notes/current-business.md`，然后永久称作统一。
 
@@ -74,7 +110,7 @@ project/
 | `docs/reference/` | 外部规范来源、采纳的方法参考、需查阅的格式资料；不放第二份现行规则 | 指向版本明确的原始来源；本项目采纳部分由现行正文持有 | 专项问题、外部接口或方法变化时 | 来源更新需相关性核验；过期资料失效标注或归档，不自动变成新规则 |
 | `docs/status.md` | 当前活动范围与阻塞的导航/汇总；不复制每张票全文、每次测试日志 | 票状态、真实部署/运行来源各自负责 | 确需跨会话/跨 effort 定位时 | 状态变动才更新；本页当前态在最前；无实际聚合需要就不建 |
 | `.scratch/<effort>/` | 一次任务的范围、规格、必要调查、票及持久证据；不作为现行业务唯一正文 | 一次任务目标和验收归任务；现行规则使用引用 | 当前任务及直接依赖；明确引用需读取必要完整上下文 | 完成后提炼有效知识，保留有独有价值的规格、票及证据并整体归档，删除无价值过程件和空目录；活动资料不得仅因目录名 scratch 当垃圾 |
-| `.artifacts/<effort>/<run>/` | 日志、截图、导出和临时测试产物；不作为唯一长期权威 | 原始运行输出与环境 | 失败排查/本次验收时 | 按保留价值清理；不可恢复的关键证明先保存至任务证据或既有安全产物存储 |
+| `.artifacts/active/<effort>/<run>/` | 本轮开发验证产物；按类型目录放置，不作为唯一长期权威 | 原始运行输出与环境 | 失败排查/本次验收时 | 运行结束实际退出active；必要原始证据选留至.artifacts/archive并写有限保留期限，任务结束核closed |
 | `docs/archive/` | 已结束但有独有价值的调查、计划、试跑、迁移证据；不收空洞流水和未解决活动事项 | 当时固定输入、原路径/SHA与历史结论 | 仅明确追溯问题或现行指针所指历史 | 历史正文原则上保持当时含义；补勘误/指向后续结论，不伪改成今天结果 |
 
 根 `GLOSSARY.md`、`docs/adr/` 和 `docs/agents/` 是对实际 Matt 消费契约的兼容选择，不再并设 `docs/domain/glossary.md`、`docs/decisions/` 等同义默认位置。多上下文沿真实地图配置保留必要项目例外，不把 Matt 示例中的 `src/ordering` 等业务目录写成全局要求。

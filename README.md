@@ -14,6 +14,8 @@
 
 - [project-handoff](skills/project-handoff/SKILL.md)：个人维护的交接保存与提醒；完整资源和计数器同源维护，上游来源及许可见技能维护页。
 
+新项目的所有资料、运行数据与开发产物按[固定工作区契约](skills/setup-solo-workflow/references/document-layout.md)分类；结合Matt任务规格/逐票结构，运行与任务生命周期结束时实际清理或归档并通过只读收尾检查。老项目按具名消费者迁移，原始数据与在途任务保留边界。
+
 本仓入口见 [工作流绑定](docs/agents/workflow.md)，当前结构见 [架构](docs/architecture.md)。文档受影响时读 [日常维护](skills/setup-solo-workflow/references/document-maintenance.md)，新落点或专项迁移再读对应参考。项目只绑定来源、事实主人、实际验收/隔离/保存机制，不复制通用正文。
 
 维护来源为 [lysyscy/My-Skills](https://github.com/lysyscy/My-Skills)。授权及检查以 [清单](skill-package.json) 为准；维护步骤见 [包操作](skills/improve-workflow/references/package-operations.md)。完整发布同步依次核源与对应CI、官方Manager安装、更新检测及备份远端；跨设备恢复缺少基准时先校准。工具只核验，实际Git发布、Manager更新和备份动作由当前维护者执行。普通新会话仅定位所需规则；旧运行保持固定版本，按当前请求决定是否发布或安装。
