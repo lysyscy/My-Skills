@@ -31,7 +31,7 @@ description: 用于用户显式启动或接续已授权的个人实施；普通�
 
 ## 评审
 
-普通任务按 [execution.md](references/execution.md) 决定必要的定向审查；统筹任务按 [coordination.md](references/coordination.md) 保留最终独立双轴。主 Agent 负责关闭发现和一次最终回执。
+普通任务由Agent按 [execution.md](references/execution.md) 主动选择自查、定向独立审查或完整双轴，包含累计未审改动；统筹任务按 [coordination.md](references/coordination.md) 保留最终独立双轴。主 Agent 负责关闭发现和一次最终回执。
 
 ## 整体统筹模式
 
