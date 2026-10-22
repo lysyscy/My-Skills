@@ -172,8 +172,19 @@ def read_state(path, session):
     return state
 
 
+def pending_reminder(state):
+    proposal = state["proposal"]
+    return (state["auto_count"] >= INTERVAL and state["response"] == "pending"
+            and proposal and not proposal["closed"])
+
+
 def evaluation_due(state, turn):
-    if state["muted"] or state["defer_until"] or state["auto_count"] < state["next_reminder_at"]:
+    if state["muted"] or state["defer_until"]:
+        return False
+    if pending_reminder(state):
+        evaluation = state.get("evaluation")
+        return not evaluation or evaluation["turn_id"] != turn or evaluation["auto_count"] < state["auto_count"]
+    if state["auto_count"] < state["next_reminder_at"]:
         return False
     evaluation = state.get("evaluation")
     if not evaluation or evaluation["auto_count"] < state["auto_count"]:
@@ -202,16 +213,18 @@ def evaluate(state, event, opts):
         if task_state == "finished":
             scope_evidence = key_arg(scope_evidence, "whole-scope completion evidence")
         next_check = "next_turn"  # An exception never exempts a later user request.
-    elif (opts.get("safe") and has_next and state["last_notified_at"] is None
-          and not state["stage_keys"] and not state["muted"] and not state["defer_until"]
-          and state["auto_count"] >= state["next_reminder_at"]):
-        raise ValueError("first reminder is ready; prepare instead of deferring a completed phase")
+    elif (opts.get("safe") and has_next and not state["muted"] and not state["defer_until"]
+          and (pending_reminder(state) or (state["last_notified_at"] is None
+               and not state["stage_keys"] and state["auto_count"] >= state["next_reminder_at"]))):
+        raise ValueError("reminder is ready; prepare instead of deferring a completed phase")
     state["evaluation"] = dict(turn_id=turn, auto_count=state["auto_count"],
         decision=decision, note=note, next_check=next_check, task_state=task_state,
         safe=bool(opts.get("safe")), has_next=has_next, next_step=next_step,
         scope_evidence=scope_evidence)
     # A current negative decision withdraws an unfulfilled proposal, not a user response.
     proposal = state["proposal"]
+    if proposal:
+        proposal["delivery_pending"] = False
     if proposal and not proposal["closed"] and not proposal["final_delivered"]:
         proposal["closed"] = True
     return {"evaluated": True, "evaluation": state["evaluation"]}
@@ -223,6 +236,11 @@ def key_arg(value, label):
     return value.strip()
 
 
+def visible_notice(notice, count):
+    body = re.sub(r"^交接建议：(?:本对话已自动压缩\d+次，建议换新对话继续。)?", "", notice)
+    return f"交接建议：本对话已自动压缩{count}次，建议换新对话继续。{body}"
+
+
 def prepare(state, event, reason, opts):
     turn = key_arg(event.get("turn_id"), "turn_id")
     if state.get("active_turn_id") and turn != state["active_turn_id"]:
@@ -231,16 +249,20 @@ def prepare(state, event, reason, opts):
     notice = opts.get("notice", "").strip()
     if not notice.startswith("交接建议：") or not 20 <= len(notice) <= 600 or "\n" in notice:
         raise ValueError("notice must be one bounded handoff suggestion paragraph")
+    notice = visible_notice(notice, state["auto_count"])
+    if len(notice) > 600:
+        raise ValueError("notice including the actual count exceeds 600 characters")
     if reason not in {"count", "stage", "confusion", "checkpoint"}:
         raise ValueError("invalid reminder reason")
     if state["muted"] or not opts.get("safe") or not opts.get("has_next"):
         return {"prepared": False, "why": "muted_or_not_ready"}
     old = state["proposal"]
-    # Re-arm an interrupted/missed delivery, keeping the same ID and count.
-    if (old and not old["closed"] and not old["final_delivered"] and
-            old["stage_key"] == stage and old["reason"] == reason and
-            old["cause_key"] == opts.get("cause_key")):
-        old.update(turn_id=turn, notice=notice)
+    # Keep past delivery evidence while preparing this turn's unanswered suggestion.
+    if (old and not old["closed"] and (
+            (not old["final_delivered"] and old["stage_key"] == stage and old["reason"] == reason
+             and old["cause_key"] == opts.get("cause_key")) or
+            (pending_reminder(state) and (old["turn_id"] != turn or old.get("delivery_pending"))))):
+        old.update(turn_id=turn, notice=notice, delivery_pending=True, retry_used=False)
         record_ready(state, turn)
         return {"prepared": True, "proposal": old}
     if state["defer_until"] and reason not in {"checkpoint", "confusion"}:
@@ -271,6 +293,7 @@ def prepare(state, event, reason, opts):
                 "turn_id": turn, "reason": reason, "stage_key": stage,
                 "cause_key": cause, "notice": notice, "counted": False,
                 "final_delivered": False,
+                 "delivery_pending": True,
                 "retry_used": False, "final_missed": False, "closed": False}
     state.update(proposal=proposal, response="pending")
     record_ready(state, turn)
@@ -286,11 +309,11 @@ def record_ready(state, turn):
 
 
 def receipt(state, proposal):
-    """Count a final-text delivery once; the only evidence is the host Stop event."""
+    """Count each prepared turn's final delivery once, retaining historical evidence."""
     if proposal["closed"]:
         raise ValueError("proposal already closed")
     proposal["final_delivered"] = True
-    if not proposal["counted"]:
+    if not proposal["counted"] or proposal.get("delivery_pending"):
         proposal["counted"] = True
         state["tracked_reminder_count"] += 1
         if state["reminder_count"] is not None:
@@ -300,8 +323,9 @@ def receipt(state, proposal):
         state["next_reminder_at"] = max(state["next_reminder_at"], state["auto_count"] + INTERVAL)
         if proposal["stage_key"] not in state["stage_keys"]:
             state["stage_keys"].append(proposal["stage_key"])
-        if proposal["reason"] == "confusion":
+        if proposal["reason"] == "confusion" and proposal["cause_key"] not in state["confusion_keys"]:
             state["confusion_keys"].append(proposal["cause_key"])
+    proposal["delivery_pending"] = False
 
 
 def respond(state, event, response, opts):
@@ -353,8 +377,11 @@ def check_stop(state, event):
     if state["muted"] or not turn or (state.get("active_turn_id") and turn != state["active_turn_id"]):
         return {}
     proposal = state["proposal"]
-    current = (proposal and not proposal["closed"] and not proposal["final_delivered"]
+    current = (proposal and not proposal["closed"]
+               and proposal.get("delivery_pending", not proposal["final_delivered"])
                and turn == proposal["turn_id"])
+    if current:
+        proposal["notice"] = visible_notice(proposal["notice"], state["auto_count"])
     if current and final_contains_notice(event.get("last_assistant_message"), proposal["notice"]):
         receipt(state, proposal)
         proposal["final_missed"] = False
@@ -398,7 +425,7 @@ def context_output(state, name):
     session = state.get("session_id")
     session_part = f"当前session_id={session}；" if session else ""
     open_proposal = (state["proposal"] and not state["proposal"]["closed"]
-                     and not state["proposal"]["final_delivered"])
+                     and (not state["proposal"]["final_delivered"] or pending_reminder(state)))
     due = evaluation_due(state, turn)
     if not (state["muted"] or state["defer_until"] or open_proposal or due):
         # Nothing to register this turn: one line instead of the full rule text.
@@ -418,12 +445,13 @@ def context_output(state, name):
     elif state["defer_until"]:
         context = f"等待用户指定节点{state['defer_until']}；节点到达才评估，普通次数不催促。"
     elif open_proposal:
-        context = ("存在尚未最终展示的建议。先核对最新回应：仍适用则按原标识重新 prepare，"
-                   "放在最终正文最前；不适用则 evaluate 或 cancel。进度消息不算展示。")
+        context = ("存在未回应或尚未最终展示的建议。每个后续合适业务回执前重评安全位置和后续："
+                   "仍适用则重新 prepare，醒目展示返回的真实次数及建议于最终正文首段；"
+                   "不适用则 evaluate，建议失效才 cancel。未回应不受已展示或冷却限制。进度消息不算展示。")
     else:
         context = ("本次压缩检查点待评估：最终答复前执行 prepare 或 evaluate。"
                    "prepare 成功才提醒；不提醒须记录原因及下次检查时机。"
-                   "首次到三次需安全位置和后续；阶段完成有下一步应 prepare，不能以本轮完成 skip。再次提醒还需新阶段与具体收益。")
+                   "首次到三次需安全位置和后续；阶段完成有下一步应 prepare，不能以本轮完成 skip。明确暂停后的再次建议还需新阶段与具体收益。")
     context += (f"执行前读取{SKILL}及references/compaction-reminder.md。"
                 "新且已核实的混淆先纠正，可提前提醒；同一问题去重，静默优先。"
                 "纯问答、无后续或讨论/修改本Skill不提醒。注入不算送达，普通继续不算交接批准。")

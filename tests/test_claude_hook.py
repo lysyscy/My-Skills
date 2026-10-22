@@ -16,7 +16,7 @@ import uuid
 SOURCE = pathlib.Path(__file__).resolve().parents[1] / "skills" / "project-handoff"
 ADAPTER = SOURCE / "scripts" / "claude_hook.py"
 CORE = SOURCE / "scripts" / "compaction_reminder.py"
-NOTICE = "交接建议：模拟阶段已收拢，后续进入下一段工作，适合在这里交接。确认后我会保存材料并交付开场白。"
+NOTICE = "交接建议：本对话已自动压缩3次，建议换新对话继续。模拟阶段已收拢，后续进入下一段工作，适合在这里交接。确认后我会保存材料并交付开场白。"
 
 
 class ClaudeHookTests(unittest.TestCase):
@@ -143,6 +143,39 @@ class ClaudeHookTests(unittest.TestCase):
         rc, out = self.hook("PostCompact", raw="not json")
         self.assertEqual(rc, 0)
         self.assertIn("计数不可用", out["systemMessage"])
+
+    def test_unanswered_delivery_repeats_across_prompts_with_actual_count(self):
+        proposal = self.prepare()
+        self.assertIn("本对话已自动压缩3次", proposal["notice"])
+        self.hook("Stop", prompt_id=self.prompt, last_assistant_message=proposal["notice"])
+        self.prompt = str(uuid.uuid4())
+        self.compact(1)
+        self.assertIn("未回应", self.context())
+        rc, repair = self.hook("Stop", prompt_id=self.prompt, last_assistant_message="业务回执")
+        self.assertEqual((rc, repair.get("decision")), (0, "block"))
+        again = self.core("--action", "prepare", "--turn-id", self.prompt, "--reason", "count",
+            "--stage-key", "simulated-stage", "--safe", "--has-next", "--notice", NOTICE)["proposal"]
+        self.assertEqual(again["id"], proposal["id"])
+        self.assertIn("本对话已自动压缩4次", again["notice"])
+        self.hook("Stop", prompt_id=self.prompt, last_assistant_message=again["notice"])
+        self.hook("Stop", prompt_id=self.prompt, last_assistant_message=again["notice"], stop_hook_active=True)
+        self.assertEqual(self.core("--action", "status")["reminder_count"], 2)
+
+    def test_explicit_pause_checkpoint_and_stop_suppress_cross_prompt_repeat(self):
+        for response in ("continue", "defer", "mute", "handoff"):
+            with self.subTest(response=response):
+                self.session, self.prompt = str(uuid.uuid4()), str(uuid.uuid4())
+                proposal = self.prepare()
+                self.hook("Stop", prompt_id=self.prompt, last_assistant_message=proposal["notice"])
+                args = ["--action", "respond", "--turn-id", self.prompt, "--response", response,
+                        "--proposal-id", proposal["id"]]
+                if response == "defer":
+                    args += ["--checkpoint-key", "ready"]
+                self.core(*args)
+                self.prompt = str(uuid.uuid4())
+                self.context()
+                self.assertEqual(self.hook("Stop", prompt_id=self.prompt,
+                    last_assistant_message="业务回执", stop_hook_active=False), (0, {}))
 
 
 if __name__ == "__main__":

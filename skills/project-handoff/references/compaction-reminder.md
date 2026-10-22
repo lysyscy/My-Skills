@@ -5,8 +5,8 @@
 ## 计数与检查点
 
 - `PostCompact(auto)` 每次加一。手动压缩、恢复会话、注入次数、聊天轮数都不计数；同一回合可以发生多次自动压缩。带子 Agent 标识的事件跳过。计数只覆盖 Hook 启用后观察到的事件，旧任务不回填。
-- 压缩数到达提醒点、且没有用户静默或指定节点时，需要一次评估。`defer + next_compaction` 让同阶段且无新收益的判断不在每轮重查；`next_turn` 下一回合重评。`skip` 始终只覆盖当前回合；旧版 skip 到下一回合也失效。新的真实压缩会让旧评估过期。业务阶段和用户指定节点由 Agent 识别，Hook 不扫描历史、不猜阶段。
-- `SessionStart` 和 `UserPromptSubmit` 注入状态，并登记宿主真实的 turn_id。本轮无需登记时只注入一行压缩数和冷却点；到期待评估、有未展示的建议、用户静默或指定节点时才注入完整规则。`Stop` 检查本轮待展示的建议和到期未评估的压缩点，缺一样就请求补漏一次，两类缺失共用这一次；本轮已补过或宿主标记 `stop_hook_active` 时不再发起。旧回合的最终答复或评估不能冒充本轮的。
+- 压缩数到达提醒点、且没有用户静默或指定节点时，需要一次评估。达到 3 次且有未回应的有效建议时，即使旧建议已通过最终文本核验、冷却点未到，后续每回合仍重评安全位置与后续。其他情况下，`defer + next_compaction` 可等下次压缩再查，`next_turn` 下一回合重评。`skip` 始终只覆盖当前回合；新的真实压缩会让旧评估过期。业务阶段和用户指定节点由 Agent 识别，Hook 不扫描历史、不猜阶段。
+- `SessionStart` 和 `UserPromptSubmit` 注入状态，并登记宿主真实的 turn_id。本轮无需登记时只注入一行压缩数和冷却点；待评估、有未回应或未展示的建议、用户静默或指定节点时才注入完整规则。`Stop` 检查本轮待展示的建议和待评估事项，缺一样就请求补漏一次，两类缺失共用这一次；本轮已补过或宿主标记 `stop_hook_active` 时不再发起。旧回合的最终答复或评估不能冒充本轮的。
 
 ## 登记命令
 
@@ -30,9 +30,10 @@ python3 -X utf8 '<SKILL_DIRECTORY>/scripts/compaction_reminder.py' --state-dir '
 
 | 场景 | 参数 |
 | --- | --- |
-| 暂缓 | `--action evaluate --session-id '<当前session_id>' --turn-id '<当前turn_id>' --outcome defer --task-state continuing --note '<具体缺项>' --next-check next_turn`；同阶段没有新收益时改 `next_compaction` |
+| 暂缓 | `--action evaluate --session-id '<当前session_id>' --turn-id '<当前turn_id>' --outcome defer --task-state continuing --note '<具体缺项>' --next-check next_turn`；没有待回应建议且同阶段无新收益时可改 `next_compaction` |
 | 不适用 | `--action evaluate --session-id '<当前session_id>' --turn-id '<当前turn_id>' --outcome skip --task-state qa --note '<仅纯问答>' --next-check next_turn` |
 | 首次次数提醒 | `--action prepare --session-id '<当前session_id>' --turn-id '<当前turn_id>' --reason count --stage-key '<稳定的业务阶段>' --safe --has-next --notice '交接建议：<原因、第一步、确认后的动作>'` |
+| 未回应持续提示 | 同首次参数，按当前业务更新原因与第一步；沿用建议 ID 和历史核验，准备本回合展示，无需等下一冷却点 |
 | 阶段提醒 | 同上，`--reason stage`，加 `--benefit` |
 | 用户确认完整交接 | `--action respond --session-id '<当前session_id>' --turn-id '<回应turn_id>' --proposal-id '<建议id>' --response handoff`。只停止提醒，业务交接仍按 handoff.md 的授权和核验执行 |
 | 用户说先不交接 | 同上，`--response continue` |
@@ -46,17 +47,17 @@ python3 -X utf8 '<SKILL_DIRECTORY>/scripts/compaction_reminder.py' --state-dir '
 | 静默／恢复 | `--action respond --session-id '<当前session_id>' --turn-id '<回应turn_id>' --response mute` 或 `resume`，不需要 proposal-id，仅用户明确要求时使用 |
 | 建议失效 | `--action cancel --session-id '<当前session_id>' --turn-id '<当前turn_id>' --proposal-id '<建议id>'`，记为本次跳过，不冒充用户拒绝 |
 
-评估覆盖整个当前范围：`--task-state continuing|phase_complete|finished|qa|skill_discussion` 为必填。有明确后续时加 `--has-next --next-step '<具体第一步>'`，操作已安全收拢时加 `--safe`。`phase_complete` 与 `continuing` 只能暂缓或 prepare，不能 skip；首次到期且安全、有后续时拒绝 defer，改走 prepare。真正无后续用 `finished`，并以 `--scope-evidence '<已核对整个范围收拢的依据>'` 说明；仅讨论本技能用 `skill_discussion`。这些字段是 Agent 的事实声明，程序校验矛盾与过期，不能独立证明业务声明真实。混合任务不能借讨论技能豁免其他工作。撤销建议后仍须按当前事实 prepare 或 evaluate。
+评估覆盖整个当前范围：`--task-state continuing|phase_complete|finished|qa|skill_discussion` 为必填。有明确后续时加 `--has-next --next-step '<具体第一步>'`，操作已安全收拢时加 `--safe`。`phase_complete` 与 `continuing` 只能暂缓或 prepare，不能 skip；首次到期或建议未回应且安全、有后续时拒绝 defer，改走 prepare。真正无后续用 `finished`，并以 `--scope-evidence '<已核对整个范围收拢的依据>'` 说明；仅讨论本技能用 `skill_discussion`。这些字段是 Agent 的事实声明，程序校验矛盾与过期，不能独立证明业务声明真实。混合任务不能借讨论技能豁免其他工作。撤销建议后仍须按当前事实 prepare 或 evaluate。
 
-约束：`note` 不超过 160 字，不存用户原文或敏感信息；`notice` 是 20 到 600 字的一段话，以“交接建议：”开头，不能换行；`--safe`、`--has-next`、`--benefit` 必须有事实依据。`prepare` 返回 `prepared: true` 才能展示，被拒绝时核实返回的原因，再登记暂缓或不适用。登记暂缓或不适用会关闭尚未最终展示的旧建议，避免恢复后误补。
+约束：`note` 不超过 160 字，不存用户原文或敏感信息；输入 `notice` 是以“交接建议：”开头、20 到 600 字的一段话。脚本加上实际次数醒目行，完整段落也须不超过 600 字；按 SKILL 的展示规则使用返回文案。`--safe`、`--has-next`、`--benefit` 必须有事实依据。`prepare` 返回 `prepared: true` 才能展示，被拒绝时核实原因，再登记暂缓或不适用。暂缓或不适用会撤下本回合待展示文本；已核验但未回应的建议保留历史，下回合重评，失效才 cancel。
 
 ## 最终核验
 
-展示没有人工回执入口，进度消息里出现过建议也不登记。`Stop` 从宿主给的最终文本里取正文第一段（跳过引用和代码块），与当前建议原文比对，一致才计一次正式提醒并开始冷却；文本核验不等于用户已经看到。同一建议的重复结束事件不重复计数。没有可用 Stop 的宿主只做人工自检，并如实说明最终核验未知，不补写“已核验”。
+展示没有人工回执入口，进度消息里出现过建议也不登记。`Stop` 从宿主给的最终文本里取正文第一段（跳过引用和代码块），与含当前真实次数的建议比对，一致才计一次正式提醒；文本核验不等于用户已经看到。prepare 后又发生压缩时，Stop 会要求补上更新后的次数。同一回合重复结束事件不重复计数；后续回合重新 prepare 并通过核验才新增一次。未回应建议继续提示，明确暂停后的再次建议遵守冷却。没有可用 Stop 的宿主只做人工自检，并如实说明最终核验未知，不补写“已核验”。
 
 ## 状态与成本
 
-每个 session_id 对应 state-dir 里一个 SHA-256 命名的文件，只存压缩计数、最近评估、当前建议、用户回应、去重键和本轮补漏状态，不存聊天正文。版本 3 把“提醒次数”限定为最终文本核验次数；新会话直接按版本 3 建档。从旧版迁移时才保留原计数快照，无法从单条记录确定的历史总数标为未知，真实压缩数不回滚。单次 `status` 的兼容转换只在内存中进行。
+每个 session_id 对应 state-dir 里一个 SHA-256 命名的文件，只存压缩计数、最近评估、当前建议、用户回应、去重键和本轮补漏状态，不存聊天正文。版本 3 把“提醒次数”限定为最终文本核验次数；新会话直接按版本 3 建档。持续提示沿用建议 ID、`counted` 和历史 `final_delivered`，新增 `delivery_pending` 区分本回合待核验；旧 pending 状态无需重置或回填即可重评。从更早版本迁移时才保留原计数快照，历史总数无法确定时标为未知，真实压缩数不回滚。单次 `status` 的兼容转换只在内存中进行。
 
 每次自动压缩时，脚本顺手删除同目录里 60 天未更新的其他会话状态：只认本脚本生成的 64 位十六进制文件名，按 `.json` 的修改时间整组删除对应的锁和临时文件，当前会话不删；删除失败不影响计数。
 

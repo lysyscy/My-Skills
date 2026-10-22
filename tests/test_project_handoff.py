@@ -23,7 +23,7 @@ spec.loader.exec_module(m)
 # Short temp root keeps lock paths under the Windows 260-character limit
 # regardless of where the repository is checked out.
 RUN = Path(tempfile.mkdtemp(prefix="ph-"))
-NOTICE = "交接建议：设计已经确认，后续进入样片；确认后保存材料，在同一项目新建并打开任务接续。"
+NOTICE = "交接建议：本对话已自动压缩3次，建议换新对话继续。设计已经确认，后续进入样片；确认后保存材料，在同一项目新建并打开任务接续。"
 
 
 class ReminderTests(unittest.TestCase):
@@ -67,6 +67,98 @@ class ReminderTests(unittest.TestCase):
         self.assertEqual(self.status()["auto_count"], 0)
         self.assertFalse(self.root.exists())
 
+    def test_pending_delivered_notice_repeats_next_business_turn_with_actual_count(self):
+        self.compact(3)
+        first = self.prep()["proposal"]
+        self.assertTrue(first["notice"].startswith("交接建议：本对话已自动压缩3次，建议换新对话继续。"))
+        self.hook("Stop", last_assistant_message=first["notice"])
+        self.compact()
+        self.turn = "next-business-turn"
+        ctx = self.hook("UserPromptSubmit", prompt="继续编写方案")["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("未回应", ctx)
+        self.assertNotIn("期间不提醒", ctx)
+        self.assertEqual(self.hook("Stop", last_assistant_message="方案已更新")["decision"], "block")
+        again = self.prep()["proposal"]
+        self.assertEqual(again["id"], first["id"])
+        self.assertTrue(again["final_delivered"])
+        self.assertTrue(again["notice"].startswith("交接建议：本对话已自动压缩4次，建议换新对话继续。"))
+        self.assertEqual(self.status()["reminder_count"], 1)
+        self.assertEqual(self.hook("Stop", last_assistant_message="**" + again["notice"] + "**\n\n方案已更新。"), {})
+        self.hook("Stop", last_assistant_message=again["notice"])
+        self.assertEqual(self.status()["reminder_count"], 2)
+        self.turn = "third-business-turn"
+        self.hook("UserPromptSubmit")
+        third = self.prep(notice=again["notice"])["proposal"]
+        self.assertEqual(third["notice"].count("本对话已自动压缩4次"), 1)
+        self.hook("Stop", last_assistant_message=third["notice"])
+        self.assertEqual(self.status()["reminder_count"], 3)
+
+    def test_prepared_repeat_can_defer_without_erasing_prior_delivery(self):
+        self.delivered()
+        self.turn = "repeat-then-defer"
+        self.hook("UserPromptSubmit")
+        self.assertTrue(self.prep()["prepared"])
+        self.evaluation(outcome="skip", note="本回合转为技能讨论")
+        self.assertEqual(self.hook("Stop", last_assistant_message="说明"), {})
+        self.assertTrue(self.status()["proposal"]["final_delivered"])
+        self.assertEqual(self.status()["reminder_count"], 1)
+        self.turn = "business-resumed"
+        self.hook("UserPromptSubmit")
+        self.assertTrue(self.prep()["prepared"])
+
+    def test_legacy_pending_delivery_is_rechecked_without_rewriting_history(self):
+        self.delivered()
+        path = m.state_path(self.root, self.sid)
+        saved = json.loads(path.read_text(encoding="utf-8"))
+        saved["proposal"].pop("delivery_pending", None)
+        saved["proposal"]["notice"] = NOTICE.replace("本对话已自动压缩3次，建议换新对话继续。", "")
+        path.write_text(json.dumps(saved), encoding="utf-8")
+        before = path.read_bytes()
+        self.assertTrue(self.status()["proposal"]["final_delivered"])
+        self.assertEqual(path.read_bytes(), before)
+        self.turn = "legacy-next"
+        self.hook("SessionStart", source="resume")
+        self.assertEqual(self.hook("Stop", last_assistant_message="普通业务回执")["decision"], "block")
+        self.assertEqual(self.status()["reminder_count"], 1)
+        self.assertTrue(self.prep()["prepared"])
+
+    def test_pending_notice_exceptions_recheck_next_turn_without_extra_compaction(self):
+        self.delivered()
+        for task in ("qa", "skill_discussion", "finished", "unsafe"):
+            self.turn = task
+            self.hook("UserPromptSubmit")
+            m.process(self.event(""), self.root, "evaluate",
+                outcome="defer" if task == "unsafe" else "skip",
+                task_state="continuing" if task == "unsafe" else task,
+                scope_evidence="当前授权范围均已收拢，无后续" if task == "finished" else None,
+                note="当前回合不适合提醒", next_check="next_compaction")
+            self.assertEqual(self.hook("Stop", last_assistant_message="答复"), {})
+            self.turn += "-business"
+            ctx = self.hook("UserPromptSubmit")["hookSpecificOutput"]["additionalContext"]
+            self.assertIn("未回应", ctx)
+            self.assertEqual(self.hook("Stop", last_assistant_message="业务回执")["decision"], "block")
+
+    def test_explicit_responses_stop_pending_repeats(self):
+        for response in ("continue", "defer", "mute", "handoff"):
+            self.sid = "response-" + response
+            self.turn = "initial"
+            self.delivered()
+            kw = {"checkpoint_key": "done"} if response == "defer" else {}
+            self.reply(response, **kw)
+            self.turn = "next"
+            self.hook("UserPromptSubmit")
+            self.assertEqual(self.hook("Stop", last_assistant_message="业务回执"), {})
+            self.assertFalse(self.prep()["prepared"])
+
+    def test_count_change_after_prepare_rejects_stale_visible_count(self):
+        self.compact(3)
+        notice = self.prep()["proposal"]["notice"]
+        self.compact()
+        repair = self.hook("Stop", last_assistant_message=notice)
+        self.assertEqual(repair["decision"], "block")
+        self.assertIn("本对话已自动压缩4次", repair["reason"])
+        self.assertEqual(self.status()["reminder_count"], 0)
+
     def test_initial_threshold_and_prepare_not_delivery(self):
         self.compact(2)
         self.assertFalse(self.prep()["prepared"])
@@ -106,7 +198,9 @@ class ReminderTests(unittest.TestCase):
         self.compact(3)
         self.prep()
         self.compact()
-        self.hook("Stop", last_assistant_message="**" + NOTICE + "**\n\n成果如下。")
+        current = self.prep()["proposal"]["notice"]
+        self.assertIn("本对话已自动压缩4次", current)
+        self.hook("Stop", last_assistant_message="**" + current + "**\n\n成果如下。")
         s = self.status()
         self.assertEqual((s["reminder_count"], s["last_notified_at"], s["next_reminder_at"]), (1, 4, 7))
         self.assertTrue(s["proposal"]["final_delivered"])
@@ -184,8 +278,8 @@ class ReminderTests(unittest.TestCase):
         self.delivered()
         self.compact(3)
         self.assertFalse(self.prep(reason="stage", stage="design", benefit=True)["prepared"])
-        self.prep(reason="stage", stage="sample", benefit=True)
-        self.hook("Stop", last_assistant_message=NOTICE)
+        notice = self.prep(reason="stage", stage="sample", benefit=True)["proposal"]["notice"]
+        self.hook("Stop", last_assistant_message=notice)
         self.compact(3)
         self.assertFalse(self.prep(reason="stage", stage="design", benefit=True)["prepared"])
 
@@ -218,7 +312,8 @@ class ReminderTests(unittest.TestCase):
                                   capture_output=True, timeout=8)
         with ThreadPoolExecutor(max_workers=6) as pool:
             results = list(pool.map(invoke, range(12)))
-        self.assertTrue(all(r.returncode == 0 and not r.stdout.strip() for r in results))
+        self.assertTrue(all(r.returncode == 0 and not r.stdout.strip() for r in results),
+                        [(r.returncode, r.stdout, r.stderr) for r in results if r.returncode or r.stdout.strip()])
         self.assertEqual(self.status()["auto_count"], 12)
 
     def test_ordinary_continue_prompt_is_not_a_response(self):
@@ -318,8 +413,8 @@ class ReminderTests(unittest.TestCase):
         self.assertEqual(path.read_bytes(), before)
         self.assertFalse(path.with_suffix(".lock").exists())
         self.compact(3)
-        self.prep(reason="stage", stage="full", benefit=True)
-        self.hook("Stop", last_assistant_message=NOTICE)
+        notice = self.prep(reason="stage", stage="full", benefit=True)["proposal"]["notice"]
+        self.hook("Stop", last_assistant_message=notice)
         s = self.status()
         self.assertIsNone(s["reminder_count"])
         self.assertEqual((s["tracked_reminder_count"], s["auto_count"]), (1, 13))
@@ -624,7 +719,7 @@ class ReminderTests(unittest.TestCase):
             self.assertEqual(m.state_path(self.root, self.sid).read_bytes(), before)
         self.assertTrue(self.prep()["prepared"])
         self.assertEqual(self.status()["reminder_count"], 0)
-        self.hook("Stop", last_assistant_message=NOTICE)
+        self.hook("Stop", last_assistant_message=self.status()["proposal"]["notice"])
         self.assertEqual(self.status()["reminder_count"], 1)
 
     def test_finished_requires_whole_scope_evidence_and_no_followup(self):
