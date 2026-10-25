@@ -19,13 +19,13 @@ description: 新建、初始化项目时固定工作区目录与生命周期；�
 
 接入涉及运行时、依赖准备或环境配置时，读取 [environment.md](references/environment.md)，复用既有管理器并验证共享与项目隔离；有效配置保持原位。
 
-新项目按 [document-layout.md](references/document-layout.md) 固定每类资料与产物的位置、创建入口和结束动作；开始任务、产生输出、运行/任务收尾时读取其中「工程文件与各类产物」及「创建、运行和结束」。老项目不在一次普通接入中顺手搬迁；目录统一需要专项迁移清单。没有内容不建空目录、词汇表、ADR、票或台账。
+新项目按 [document-layout.md](references/document-layout.md) 固定每类资料与产物的位置、创建入口和结束动作；创建或变更资料落点、受管理产物，或归属/生命周期不清时读取相应分支，同源同版本已读且仍适用的内容可复用。老项目不在一次普通接入中顺手搬迁；目录统一需要专项迁移清单。没有内容不建空目录、词汇表、ADR、票或台账。
 
 ## 建立最小绑定
 
 修改文档前读取 [document-maintenance.md](references/document-maintenance.md)。只在首次确定资料位置或新建类别时读取 [document-layout.md](references/document-layout.md)。
 
-绑定只记录：个人规则来源及所属技能内资源、项目事实的权威位置、实际验收/隔离/保存机制的入口、必要项目例外。把本技能随包分发的scripts/workspace_check.py接到开始与收尾入口；paths定位，active/run-closed/closed分别核落点、运行退出和任务退出。不要复制全局规则、命令表和业务正文。
+绑定只记录：个人规则来源及所属技能内资源、项目事实的权威位置、实际验收/隔离/保存机制的入口、必要项目例外。把随包分发的 scripts/workspace_check.py 接到确有相关风险的入口：项目接入、专项迁移、复杂运行产物、共享资源退出或分类/保留有具体风险时，按 document-layout 的触发执行相关范围。paths 定位，active/run-closed/closed 分别核落点、运行退出和任务退出；无相关产物或变化的简单任务不造记录或重复检查。不要复制全局规则、命令表和业务正文。
 
 普通已授权实施，指向 lysyscy/My-Skills → implement-solo-spec → references/execution.md；这是读取普通参考，不是隐式调用 implement-solo-spec。跨技能定位按 execution 的“规则来源与定位”核真实入口、所属来源与固定版本，不假设技能物理相邻。创建任何子 Agent 前，必须读取同来源的 references/delegation.md。
 

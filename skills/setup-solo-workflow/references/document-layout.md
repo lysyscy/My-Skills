@@ -1,6 +1,6 @@
 # 项目目录、文档与产物职责
 
-用户于2026-10-19确定的跨项目工作区契约。新项目直接采用；老项目的新任务沿本契约分类，已有运行路径、工具默认值和在途任务先保留为具名迁移例外，切换消费者并验证后退出。固定的是类型、路径与结束动作，有内容才创建目录。
+用户于2026-10-19确定的跨项目工作区契约。新项目直接采用；老项目的新任务沿本契约分类，已有运行路径、工具默认值和在途任务先保留为具名迁移例外，切换消费者并验证后退出。固定的是类型、路径与结束动作，有内容才创建目录。创建或变更资料落点、受管理产物，或归属/生命周期不清时读取；同源同版本已读且仍适用的内容可复用。
 
 ## 固定位置、按需创建
 
@@ -54,8 +54,8 @@ project/
 | 凭据与本机配置 | 根.env或宿主凭据存储；动态登录状态在var/state | 不入Git；轮换/失效即撤销或删除，不能复制进证据或归档 |
 | 当前业务、架构、术语、指南、参考、重要决定 | 上述docs位置与GLOSSARY | 修改唯一正文与引用；被替代的独有历史移docs/archive，废弃副本删除 |
 | 任务规格、调查、澄清、地图、票、持久证据、交接 | .scratch/<effort>/{spec,research,questions,map,evidence,handoff}.md及issues/ | 任务全部验收后提炼现行结论；有独有价值的正文归docs/archive/<effort>，其余删除，原活动目录实际退出 |
-| 一次开发验证的日志、报告、截图、轨迹、测试导出与下载 | .artifacts/active/<effort>/<run>/{logs,reports,screenshots,traces,exports,downloads}/ | 该次运行结束即删无价值产物；必要原始证据归.artifacts/archive/<effort>/<run>，只选留logs/reports/screenshots/traces/exports/recovery；work删除、长期需要的下载归data/source，活动run实际退出 |
-| 一次性脚本、评审diff、临时源代码/构建/数据库副本 | 同一run的work/；原生临时API可使用系统临时目录 | 验证/诊断结束立即释放；临时进程、端口和worktree同时退出 |
+| 一次开发验证的日志、报告、截图、轨迹、测试导出与下载 | .artifacts/active/<effort>/<run>/{logs,reports,screenshots,traces,exports,downloads}/ | 运行产物无活动用途后删无价值内容；必要原始证据归.artifacts/archive/<effort>/<run>，只选留logs/reports/screenshots/traces/exports/recovery；work按实际消费者退出、长期需要的下载归data/source，无活动用途的run实际退出 |
+| 一次性脚本、评审diff、临时源代码/构建/数据库副本 | 同一run的work/；原生临时API可使用系统临时目录 | 验证/诊断用途结束且无活动消费者或独有未保存状态时释放；对应临时进程、端口和 worktree 按各自用途退出 |
 | 本次编辑或清理的恢复点 | 同一run的recovery/ | 风险窗口关闭且保存验证完成即删除；仍需回滚则转本机证据归档并记录具体退出条件，已有Git足够时不再复制 |
 | 必要本机原始证据 | .artifacts/archive/<effort>/<run>/，同effort的retention.json | 仅保留无法用提交和结论替代的最小证据，默认最多30天；到期同次检查处置，明确长期用途则迁为正式样本/数据，不无限续期整棵现场 |
 | 用户原始输入、长期参考数据 | data/source、data/reference | 按业务或用户确认的保留规则处置；任务结束不自动删除原件。测试样本脱敏后归tests/fixtures |
@@ -68,10 +68,10 @@ project/
 
 ### 创建、运行和结束
 
-1. **开始。** 确认根、effort及run身份，读取项目例外、dirty和活动消费者。首次接入给实际生成入口、示例、.gitignore和检查接好固定路径；绑定本技能随包分发的scripts/workspace_check.py。正常任务不扫描全部历史正文。
+1. **开始。** 确认根、项目例外、dirty及活动消费者；确有受管理任务/运行产物时确认 effort/run 身份。首次接入给实际生成入口、示例、.gitignore和检查接好固定路径；绑定本技能随包分发的scripts/workspace_check.py。正常任务不扫描全部历史正文。
 2. **生成。** 使用检查脚本paths给出的路径；先核绝对路径与链接目标。需要持久材料才建文件。`.scratch`只放任务Markdown和逐票资料，运行输出进对应kind；用户原件、凭据和共享依赖不当临时输入复制。
-3. **运行结束。** 成功与失败都在本次收尾释放临时资源。失败未归因时仅留最小必要原始证据；先脱敏，再在.artifacts/archive/<effort>/retention.json写reason和expires_on（YYYY-MM-DD，最长30天）。随后归档选留证据、删除其余并移出active的run；运行run-closed检查。
-4. **任务结束。** 核所有授权范围和真实验收；有效结论归现行主人，必要历史归docs/archive/<effort>，修引用并实际退出.scratch和active中的整个effort；运行closed检查。阶段完成仍有后续时保留有明确范围的活动任务，只结束本轮run。纯问答或没有产物时不造目录/归档件。
+3. **运行结束。** 成功与失败均核本次资源用途；用途结束且无活动消费者/独有未保存状态的临时资源在本次收尾释放。主预览仍供用户验收时保持有效，在已有任务记录中保留负责人、版本、用途和退出条件；技术完成、用户验收与资源退出分别报告。停止服务不等于删除其数据库、源码或工作树。失败未归因时仅留最小必要原始证据；先脱敏，再在.artifacts/archive/<effort>/retention.json写reason和expires_on（YYYY-MM-DD，最长30天）。随后归档选留证据、删除其余；无活动用途后实际移出 active 的 run。已触发检查的运行执行 run-closed；仍有有效消费者的运行保持活动，不冒报已关闭。
+4. **任务结束。** 核所有授权范围和真实验收；有效结论归现行主人，必要历史归docs/archive/<effort>，修引用并实际退出.scratch和active中的整个effort；已触发检查的任务执行 closed。阶段完成仍有后续时保留有明确范围的活动任务，本轮 run 也按实际消费者决定是否退出。纯问答或没有产物时不造目录/归档件。
 5. **完成反馈。** 报实际删除/归档/保留位置、保留理由、退出条件及检查结果。清理/归档是完成动作，不是“以后注意”或额外待办；检查失败则本轮收尾未完成。检查只读取文件，实际迁移删除由当前负责人按授权执行，没有后台定时删除承诺。
 
 从本技能实际安装目录运行（不从业务cwd猜位置）：
@@ -83,7 +83,7 @@ python <setup-solo-workflow>/scripts/workspace_check.py check --root <project> -
 python <setup-solo-workflow>/scripts/workspace_check.py check --root <project> --effort <slug> --phase closed
 ```
 
-active检查本任务分类及本机证据归档到期；run-closed要求该run已退出active；closed要求本任务.scratch和active均不存在。三种检查都验证本机归档理由、期限及链接边界。它不证明语义分类、隐私脱敏、业务验收或全盘清理，项目已有检查与人工判断仍需完成。新任务开始与收尾均读取到期结果；没有正在执行的Agent时不会在截止时刻自动运行。
+active检查本任务分类及本机证据归档到期；run-closed要求该run已退出active；closed要求本任务.scratch和active均不存在。三种检查都验证本机归档理由、期限及链接边界。它不证明语义分类、隐私脱敏、业务验收或全盘清理，项目已有检查与人工判断仍需完成。项目接入、专项迁移、复杂运行产物、共享资源退出或分类/保留有具体风险时，执行相关检查并处理到期结果。简单任务无相关产物或变化时，不制造 effort/run、空目录或归档，也不重复无输入变化的治理检查。已触发检查非零时解决原因或保留真实阻塞，不改预期、伪造归属或跳过失败。run-closed/closed 只判定其消费的资源范围，不要求交付页面后立刻停止所有服务。没有正在执行的 Agent 时不会在截止时刻自动运行。
 
 项目.gitignore须忽略.artifacts、var、.env、依赖环境和可重建产物；.scratch按tracker需求跟踪，data/source及exports默认忽略且不得强制提交。既有更严格的隐私、原件或服务要求继续有效。原生工具输出不可配置时在workflow逐项记默认路径、消费者、生命周期与迁移/保留理由，不用一条“沿项目惯例”放开所有目录。
 

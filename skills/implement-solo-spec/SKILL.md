@@ -11,6 +11,8 @@ description: 用于用户显式启动或接续已授权的个人实施；普通�
 
 默认为普通改动。只有工作需要跨批依赖、累计集成或项目已明确要求统筹，并且采用依据与授权范围清楚时，才读取 [coordination.md](references/coordination.md)。是否统筹与风险高低分别判断；不将已授权在途统筹静默降级。
 
+涉及重要界面内容取舍、用户阶段验收或交互预览时，读取 [human-collaboration.md](references/human-collaboration.md)。
+
 任何子 Agent 创建前必须读取 [delegation.md](references/delegation.md)；特殊风险、浏览器或环境/失败问题出现时读取 [verification.md](references/verification.md)。没有触发不要读完这些分支。
 
 ## 普通改动
