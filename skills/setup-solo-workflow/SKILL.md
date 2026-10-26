@@ -21,6 +21,10 @@ description: 新建、初始化项目时固定工作区目录与生命周期；�
 
 新项目按 [document-layout.md](references/document-layout.md) 固定每类资料与产物的位置、创建入口和结束动作；创建或变更资料落点、受管理产物，或归属/生命周期不清时读取相应分支，同源同版本已读且仍适用的内容可复用。老项目跨任务或长期结构调整使用专项迁移清单；普通授权改动的直接相关资料收尾按日常维护执行。没有内容不建空目录、词汇表、ADR、票或台账。
 
+## 共享记忆接入
+
+新项目初始化或用户明确接入共享记忆时，读取 [memory-adoption.md](references/memory-adoption.md)：新项目建立最小绑定；已有项目首次完整接入按已授权现行来源筛选和迁移；重跑只补实际缺口。仅检查连通性不触发迁移。共同政策由 [统一自定义指令](references/agent-instructions.md) 持有，日常任务直接消费，不再次运行 setup。
+
 ## 建立最小绑定
 
 修改文档前读取 [document-maintenance.md](references/document-maintenance.md)。只在首次确定资料位置或新建类别时读取 [document-layout.md](references/document-layout.md)。

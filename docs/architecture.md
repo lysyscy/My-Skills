@@ -12,4 +12,6 @@ improve-workflow/references/behavior-evaluation.md 拥有按需行为对照协�
 
 project-handoff自带Codex/Claude生命周期适配器及模板，状态只归各宿主session，不与业务数据或包发布记录混用；根tests中的project-handoff和Claude回归消费同一维护源，运行事件均限隔离状态。
 
+共同自定义指令维护源为 skills/setup-solo-workflow/references/agent-instructions.md，随既有技能包分发；各端自定义指令消费同一正文，宿主专用约束保留于其适配。setup 的 memory-adoption.md 持有接入与首次内容迁移，execution 在自然收尾引用共同政策，不维护第二份记忆制度。
+
 tests/ 使用标准库 unittest、隔离本地 Git 仓和仅查询的 FakeManager；真实文件变化由夹具构造。测试覆盖保留的核验契约及接入/迁移保护，已退役的发布与安装编排不再作为新接口验收。结构、语义、夹具行为与真实宿主/安装效果分别证明。历史材料保留在 docs/archive/。
