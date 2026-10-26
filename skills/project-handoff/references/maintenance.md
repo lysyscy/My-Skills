@@ -6,4 +6,4 @@
 
 本机原project-handoff ID沿用，来源迁移不创建同名第二个技能，不改变preset、标签或部署选择。更新仍用Manager，不手改元数据。安装文件一致、真实宿主加载、最终文本核验及另一实体设备分别报告；更新技能不代表/hooks原生信任或真实提醒链已经验收。
 
-上游来源是[duoduoler-ops/Table-skills](https://github.com/duoduoler-ops/Table-skills)，导入基线715985054d180ca7b46c78646240f7dd36fced4f；首次个人修复来自abcd34f531fbb93e4e489a6fc05077c08fadd293。上游代码采用MIT许可，完整许可见[upstream-license.txt](upstream-license.txt)。2026-10-19用户明确要求改为个人技能并统一维护源；此后维护在本仓进行，上游仅作来源追溯，不自动双向同步。
+上游来源是[duoduoler-ops/Table-skills](https://github.com/duoduoler-ops/Table-skills)，采用MIT许可，完整许可见[upstream-license.txt](upstream-license.txt)。本技能仅在上述个人维护源更新，上游用于来源追溯，不自动双向同步。
