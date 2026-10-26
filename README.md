@@ -14,7 +14,7 @@
 
 - [project-handoff](skills/project-handoff/SKILL.md)：个人维护的交接保存与提醒；完整资源和计数器同源维护，上游来源及许可见技能维护页。
 
-新项目的所有资料、运行数据与开发产物按[固定工作区契约](skills/setup-solo-workflow/references/document-layout.md)分类；结合Matt任务规格/逐票结构，运行与任务生命周期结束时实际清理或归档并通过只读收尾检查。老项目按具名消费者迁移，原始数据与在途任务保留边界。
+新项目的所有资料、运行数据与开发产物按[固定工作区契约](skills/setup-solo-workflow/references/document-layout.md)分类；结合Matt任务规格/逐票结构，每次授权改动及阶段结束处理相关资料；有效知识归现行主人，Git可追溯且无活动用途的原文默认退出，必要非Git证据与具名历史例外按各自生命周期处理，并通过已触发的收尾检查。老项目按具名消费者迁移，原始数据与在途任务保留边界。
 
 本仓入口见 [工作流绑定](docs/agents/workflow.md)，当前结构见 [架构](docs/architecture.md)。文档受影响时读 [日常维护](skills/setup-solo-workflow/references/document-maintenance.md)，新落点或专项迁移再读对应参考。项目只绑定来源、事实主人、实际验收/隔离/保存机制，不复制通用正文。
 
