@@ -59,8 +59,8 @@ def safe_tree(path: Path, errors: list[str]) -> None:
             safe_tree(child, errors)
 
 
-def check(root: Path, effort: str, phase: str, run: str | None = None,
-          today: date | None = None) -> list[str]:
+def check_report(root: Path, effort: str, phase: str, run: str | None = None,
+                 today: date | None = None) -> dict:
     slug(effort)
     if phase == 'run-closed' and run is None:
         raise ValueError('run-closed requires --run')
@@ -70,11 +70,18 @@ def check(root: Path, effort: str, phase: str, run: str | None = None,
         raise ValueError('project root must exist')
     today = today or date.today()
     errors: list[str] = []
+    other_errors: list[str] = []
+    def report():
+        combined = errors + other_errors
+        return {'ok': not combined, 'errors': combined, 'phase': phase,
+                'scope': {'effort': effort, 'ok': not errors, 'errors': errors},
+                'other_archives': {'ok': not other_errors, 'errors': other_errors}}
     # Check ancestors first so nested paths cannot traverse an external junction.
     for relative in ('.scratch', '.artifacts', '.artifacts/active', '.artifacts/archive'):
         path = root / relative
         if path.is_symlink() or path.exists() and linked(path):
-            return [f'link/reparse point is outside managed traversal: {path}']
+            errors.append(f'link/reparse point is outside managed traversal: {path}')
+            return report()
     task = root / '.scratch' / effort
     active = root / '.artifacts/active' / effort
     for child in children(task, errors):
@@ -106,18 +113,19 @@ def check(root: Path, effort: str, phase: str, run: str | None = None,
             errors.append(f'finished run still occupies active location: {target}')
     # Scan only retention metadata, never historical bodies or credential contents.
     for archive in children(root / '.artifacts/archive', errors):
-        safe_tree(archive, errors)
+        archive_errors = errors if archive.name == effort else other_errors
+        safe_tree(archive, archive_errors)
         if linked(archive) or not archive.is_dir():
             continue
-        for archived_run in children(archive, errors):
+        for archived_run in children(archive, archive_errors):
             if archived_run.name == 'retention.json':
                 continue
-            for kind in children(archived_run, errors):
+            for kind in children(archived_run, archive_errors):
                 if kind.name not in KINDS or kind.name in ('work', 'downloads') or not kind.is_dir():
-                    errors.append(f'temporary work/downloads cannot become archived evidence: {kind}')
+                    archive_errors.append(f'temporary work/downloads cannot become archived evidence: {kind}')
         retention = archive / 'retention.json'
         if retention.is_symlink() or retention.exists() and linked(retention):
-            errors.append(f'linked retention metadata: {retention}')
+            archive_errors.append(f'linked retention metadata: {retention}')
             continue
         try:
             policy = json.loads(retention.read_text(encoding='utf-8'))
@@ -127,8 +135,15 @@ def check(root: Path, effort: str, phase: str, run: str | None = None,
             if not today < expires <= today + timedelta(days=30):
                 raise ValueError('retention has expired or exceeds 30 days')
         except (OSError, ValueError, KeyError, TypeError) as exc:
-            errors.append(f'invalid retention metadata {retention}: {exc}')
-    return errors
+            archive_errors.append(f'invalid retention metadata {retention}: {exc}')
+    return report()
+
+
+def check(root: Path, effort: str, phase: str, run: str | None = None,
+          today: date | None = None) -> list[str]:
+    """Keep the original list-returning interface for existing consumers."""
+    return check_report(root, effort, phase, run, today)['errors']
+
 
 
 def main() -> int:
@@ -148,8 +163,7 @@ def main() -> int:
                 raise ValueError('paths requires --run')
             result = {'ok': True, 'paths': paths(root, args.effort, args.run)}
         else:
-            errors = check(root, args.effort, args.phase, args.run)
-            result = {'ok': not errors, 'errors': errors, 'phase': args.phase}
+            result = check_report(root, args.effort, args.phase, args.run)
     except (OSError, ValueError) as exc:
         result = {'ok': False, 'errors': [str(exc)]}
     print(json.dumps(result, ensure_ascii=False, indent=2))

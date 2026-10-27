@@ -139,6 +139,33 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(p.returncode, 1)
         self.assertFalse(json.loads(p.stdout)['ok'])
 
+    def test_other_archive_issues_are_reported_without_failing_current_scope(self):
+        self.put('.artifacts/archive/parallel/r1/work/helper.py')
+        before = {p: p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+        report = workspace.check_report(self.root, 'example', 'closed', today=self.today)
+        self.assertFalse(report['ok'])
+        self.assertTrue(report['scope']['ok'])
+        self.assertEqual(report['scope']['errors'], [])
+        self.assertFalse(report['other_archives']['ok'])
+        self.assertEqual(report['errors'], report['other_archives']['errors'])
+        self.assertEqual(self.check('closed'), report['errors'])
+        self.assertTrue(all(p.read_bytes() == body for p, body in before.items()))
+
+    def test_current_archive_and_cli_keep_nonzero_overall_status(self):
+        self.put('.artifacts/archive/example/r1/work/owned.py')
+        self.put('.artifacts/archive/parallel/r1/work/other.py')
+        p = subprocess.run([sys.executable, str(SCRIPT), 'check', '--root', str(self.root),
+                            '--effort', 'example', '--phase', 'closed'], capture_output=True,
+                           text=True, encoding='utf-8', check=False)
+        self.assertEqual(p.returncode, 1)
+        report = json.loads(p.stdout)
+        self.assertFalse(report['ok'])
+        self.assertFalse(report['scope']['ok'])
+        self.assertFalse(report['other_archives']['ok'])
+        self.assertTrue(all('/example/' in error.replace('\\', '/') for error in report['scope']['errors']))
+        self.assertTrue(all('/parallel/' in error.replace('\\', '/') for error in report['other_archives']['errors']))
+        self.assertEqual(report['errors'], report['scope']['errors'] + report['other_archives']['errors'])
+
 
 if __name__ == '__main__':
     unittest.main()

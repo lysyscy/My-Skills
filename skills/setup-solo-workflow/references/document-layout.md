@@ -87,7 +87,7 @@ python <setup-solo-workflow>/scripts/workspace_check.py check --root <project> -
 python <setup-solo-workflow>/scripts/workspace_check.py check --root <project> --effort <slug> --phase closed
 ```
 
-active检查本任务分类及本机证据归档到期；run-closed要求该run已退出active；closed要求本任务.scratch和active均不存在。三种检查都验证本机归档理由、期限及链接边界。它不证明语义分类、隐私脱敏、业务验收或全盘清理，项目已有检查与人工判断仍需完成。项目接入、专项迁移、复杂运行产物、共享资源退出或分类/保留有具体风险时，执行相关检查并处理到期结果。简单任务无相关产物或变化时，不制造 effort/run、空目录或归档，也不重复无输入变化的治理检查。已触发检查非零时解决原因或保留真实阻塞，不改预期、伪造归属或跳过失败。run-closed/closed 只判定其消费的资源范围，不要求交付页面后立刻停止所有服务。没有正在执行的 Agent 时不会在截止时刻自动运行。
+check的JSON保留顶层ok/errors和总体退出码，并增加scope（本任务、其归档及共享路径问题）与other_archives（其他归档问题）两组；scope通过不代表全库通过，其他归档错误仍使总体非零。active检查本任务分类及本机证据归档到期；run-closed要求该run已退出active；closed要求本任务.scratch和active均不存在。三种检查都验证本机归档理由、期限及链接边界。它不证明语义分类、隐私脱敏、业务验收或全盘清理，项目已有检查与人工判断仍需完成。项目接入、专项迁移、复杂运行产物、共享资源退出或分类/保留有具体风险时，执行相关检查并处理到期结果。简单任务无相关产物或变化时，不制造 effort/run、空目录或归档，也不重复无输入变化的治理检查。已触发检查非零时解决原因或保留真实阻塞，不改预期、伪造归属或跳过失败。run-closed/closed 只判定其消费的资源范围，不要求交付页面后立刻停止所有服务。没有正在执行的 Agent 时不会在截止时刻自动运行。
 
 项目.gitignore须忽略.artifacts、var、.env、依赖环境和可重建产物；.scratch按tracker需求跟踪，data/source及exports默认忽略且不得强制提交。既有更严格的隐私、原件或服务要求继续有效。原生工具输出不可配置时在workflow逐项记默认路径、消费者、生命周期与迁移/保留理由，不用一条“沿项目惯例”放开所有目录。
 
