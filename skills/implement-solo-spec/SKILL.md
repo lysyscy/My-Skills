@@ -25,7 +25,7 @@ description: 用于用户显式启动或接续已授权的个人实施；普通�
 
 ## 模型与推理强度
 
-唯一现行正文：[delegation.md](references/delegation.md)。创建任何调查、实现、审查或修复子 Agent 前必读，不以模型默认值替代。
+委派入口：[delegation.md](references/delegation.md)。创建任何调查、实现、审查或修复子 Agent 前必读；Codex 选型按其中指针读取专用规则。
 
 ## 验证与失败处理
 
