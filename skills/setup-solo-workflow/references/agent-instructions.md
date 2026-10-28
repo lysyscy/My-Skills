@@ -29,6 +29,10 @@ These are defaults for code-related work. Follow the current request and applica
 - Update affected authoritative information and status. Retain history according to the project's lifecycle policy. Retire your own temporary resources when their purpose ends; protect active consumers, unique unsaved state, and resources owned by others.
 - Finish when acceptance and required closure are satisfied. Report the outcome, actual verification, material remaining uncertainty, and save or deployment status where relevant. Follow existing authorization for commits, pushes, deployment, and external actions.
 
+## 5. Maintain user-owned skills
+
+When creating, editing or distributing a user-maintained skill, read `lysyscy/My-Skills -> improve-workflow -> references/package-operations.md` from the verified same-source installation or fixed source. It owns maintenance-source selection and the applicable publishing branch; ordinary project work does not trigger skill maintenance.
+
 ## Shared memory and responsibilities
 
 These instructions are the common source deployed to the user's agent clients. Project files and business skills own current requirements, rules, boundaries and task state; workflow skills own reusable methods. Hindsight supplies preferences, decision background and verified experience. Current instructions and applicable formal rules take precedence over recalled material; code and observations establish actual behavior, not permission or accepted business meaning.
