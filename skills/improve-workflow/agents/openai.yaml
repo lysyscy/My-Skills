@@ -1,4 +1,4 @@
 interface:
   display_name: "复盘并优化个人工作流"
-  short_description: "按真实证据复盘个人方法；获准维护时验证和保存候选，按权限发布与分发"
-  default_prompt: "使用 $improve-workflow 复盘本次任务。遵守本次只读、候选或发布边界；验证获准的个人技能修改，源由 Git 保存，分发由 Skills Manager 管理。"
+  short_description: "从真实轨迹扫描工作环境与个人方法的改进机会，判断归属、成本和验证反馈"
+  default_prompt: "使用 $improve-workflow 复盘当前或指定会话：先取证，按适用条件扫描七类改进机会，核现有机制、原因与归属，再按影响给出采用、拒绝或待验证结论。遵守本次只读、候选或发布边界。"
