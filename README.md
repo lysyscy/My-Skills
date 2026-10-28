@@ -10,6 +10,7 @@
 
 - [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：接入、修复项目绑定及获批的专项文档迁移。
 - [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：显式启动或接续实施。普通已授权任务由项目绑定读取同一 [execution.md](skills/implement-solo-spec/references/execution.md)，不必先建规格或拆票；复杂统筹按采用授权触发。
+- [Codex 专用模型调度](skills/implement-solo-spec/references/codex-model-routing.md)：Pro100 / Pro200 各含日常、充裕；选型或切换时查阅，持久默认也在该文件维护。
 - [improve-workflow](skills/improve-workflow/SKILL.md)：按真实证据复盘；获准个人包维护才验证和保存候选，按权限使用 Git 与 Skills Manager，只读分析止于结论。
 
 - [project-handoff](skills/project-handoff/SKILL.md)：个人维护的交接保存与提醒；完整资源和计数器同源维护，上游来源及许可见技能维护页。

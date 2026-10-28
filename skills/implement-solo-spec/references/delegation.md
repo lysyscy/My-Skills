@@ -1,7 +1,7 @@
 # 委派、模型与隔离
 
 
-Codex 中实际创建子 Agent 或为新阶段选型时，读取 [codex-model-routing.md](codex-model-routing.md)；同一内容已读且未变化时复用。主会话沿用用户选定的配置，不擅自切换。
+Codex 中实际创建子 Agent、为新任务/阶段选型，或用户要求切换 Pro100 / Pro200 方案及默认时，读取 [codex-model-routing.md](codex-model-routing.md)；同一内容已读且未变化时复用。主会话沿用用户选定的配置，不擅自切换。
 
 ## 何时委派
 
