@@ -32,7 +32,7 @@
 
 默认普通改动：可在一个范围内独立交付与验收就直接推进。跨批依赖、累计集成或项目既定统筹要求出现且采用授权明确时，读取 coordination.md。高风险可以仍是普通改动，必须加强验证，而不是机械增加调度流程。
 
-创建任何子 Agent 前必读 delegation.md。没有清晰独立收益就由主 Agent 完成；不按票数固定开 Agent。
+默认由当前 Agent 直接完成任务；需要判断委派边界或创建任何子 Agent 前读 delegation.md，按实际收益自主决定，无需用户逐次声明执行模式。
 
 发现现有能力不够、反复手写工具性代码或不熟悉接口时，读取同来源 improve-workflow/references/capability-selection.md。已有机制足够则直接使用；不因此启动复盘或安装。
 

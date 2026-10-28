@@ -25,7 +25,7 @@ description: 用于用户显式启动或接续已授权的个人实施；普通�
 
 ## 模型与推理强度
 
-委派入口：[delegation.md](references/delegation.md)。创建任何调查、实现、审查或修复子 Agent 前必读；Codex 选型按其中指针读取专用规则。
+判断直接执行与委派的边界、创建任何子 Agent 前读 [delegation.md](references/delegation.md)；Codex 当前执行者配置与子 Agent 自动选型按其中指针读取专用规则。
 
 ## 验证与失败处理
 
