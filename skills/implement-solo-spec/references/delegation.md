@@ -1,7 +1,7 @@
 # 委派、模型与隔离
 
 
-Codex 中创建或调整子 Agent、处理用户指定的执行者配置，或用户要求切换 Pro100 / Pro200 方案及默认时，读取 [codex-model-routing.md](codex-model-routing.md)；同一内容已读且未变化时复用。
+Codex 中创建或调整子 Agent、处理用户指定的执行者配置时，读取 [模型调度总则](codex-model-routing.md)；同一内容已读且未变化时复用。
 
 ## 何时委派
 
