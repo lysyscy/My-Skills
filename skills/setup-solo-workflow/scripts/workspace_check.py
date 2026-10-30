@@ -149,12 +149,23 @@ def check(root: Path, effort: str, phase: str, run: str | None = None,
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('paths', 'check'))
-    parser.add_argument('--root', required=True, type=Path)
-    parser.add_argument('--effort', required=True)
+    parser.add_argument('--root', type=Path)
+    parser.add_argument('--lifecycle-root', type=Path)
+    parser.add_argument('--effort')
     parser.add_argument('--run')
     parser.add_argument('--phase', choices=('active', 'run-closed', 'closed'), default='active')
     args = parser.parse_args()
     try:
+        if args.lifecycle_root is not None:
+            if args.action != 'check' or args.root is not None or args.effort is not None:
+                raise ValueError('lifecycle check cannot mix legacy arguments')
+            import artifact_lifecycle
+            rows = artifact_lifecycle.sweep(args.lifecycle_root)
+            ok = not any(v['status'] in {'error', 'changed', 'review-due'} for v in rows)
+            print(json.dumps({'ok': ok, 'groups': rows}, ensure_ascii=False))
+            return 0 if ok else 1
+        if args.root is None or args.effort is None:
+            raise ValueError('legacy check requires root and effort')
         root = args.root.resolve(strict=True)
         if not root.is_dir():
             raise ValueError('project root must be a directory')

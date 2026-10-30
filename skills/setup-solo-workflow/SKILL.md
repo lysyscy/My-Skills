@@ -17,3 +17,5 @@ description: 为新项目接入个人工作规则，或按批准范围更新活�
 新建或改变环境时读 [环境接入](references/environment.md)；决定新产物落点时读 [目录设计](references/document-layout.md)；文档职责调整读 [文档职责](references/documentation.md)，维护文本读 [文档维护](references/document-maintenance.md)，专项迁移读 [迁移](references/document-migration.md)。这些是 setup 的接入方法，不是每次开发的必读链。
 
 用户明确接入共享记忆时读 [记忆接入](references/memory-adoption.md)。Hindsight 保留经验、偏好和决定背景，不替代项目规则、用户授权或确定性检查。
+
+产物生命周期接入与通用工具配置见 [产物生命周期](references/artifact-lifecycle.md)；包括无项目受管运行区，接入不自动清理旧材料或安装调度。

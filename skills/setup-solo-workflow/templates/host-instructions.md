@@ -35,3 +35,5 @@ Before retaining the same source/topic, use a stable document identity or focuse
 Memory never grants authority or silently promotes an experience into a formal rule. Changes to formal meaning use the existing rule-maintenance process. After a branch merge, update only affected memory scope/status and reuse identities; do not re-import the project or infer deployment from merge. Git rollback does not roll back memory. Native client memories are not a second manually maintained authority, and this instruction does not disable any product-level mechanism.
 
 Host-specific tools and shell restrictions remain in each host's existing adapter. Apply a tool convention only when the tool exists; this policy does not authorize installing tools or changing security settings. Fixed ongoing tasks retain their adopted rules and acceptance baseline; updated instructions govern new tasks or explicitly switched work.
+
+For generated artifacts, use the adopted project lifecycle rules, or the explicitly enrolled personal runtime area for tasks without a project. Preserve unregistered files; do not assume a scheduler exists.

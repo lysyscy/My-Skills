@@ -17,3 +17,5 @@ project-handoff自带Codex/Claude生命周期适配器及模板，状态只归�
 共享规则模板为 skills/setup-solo-workflow/templates/host-instructions.md，包含跨项目调用边界和已有记忆政策；宿主部署前保留旧入口。项目更新采用来源版本与本地适配，setup 只布置适用模块。memory-adoption.md 只负责首次接入/迁移，Hindsight 不承担正式规则发布。
 
 tests/ 使用标准库 unittest、隔离本地 Git 仓和仅查询的 FakeManager；真实文件变化由夹具构造。测试覆盖保留的核验契约及接入/迁移保护，已退役的发布与安装编排不再作为新接口验收。结构、语义、夹具行为与真实宿主/安装效果分别证明。历史材料保留在 docs/archive/。
+
+个人产物生命周期的已批准默认规则与工具接口归 setup/references/artifact-lifecycle.md；artifact_lifecycle.py 只处理显式接入的专用输出区。workspace_check 保持只读，新增登记与旧目录检查分别进入；实际项目接入、调度、通知与旧材料处置独立授权。
