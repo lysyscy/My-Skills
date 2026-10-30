@@ -85,3 +85,11 @@
 新任务生成可清理材料时先执行 `python -X utf8 tools/artifact_lifecycle.py register --group <安全标识> --owner <任务> --reason <用途> --kind evidence`，使用返回目录作为输出。读写消费者用 `lease -- <命令及参数>`；用途结束再 `close --group <标识> --days 30`（明确跨月为60）。未决用 `hold --group <标识> --reason <原因> --condition <解除条件>`；复查及解除由实际负责人执行。`check`只读；`sweep`实际删除符合条件材料。
 
 原有生产者的固定输出、系统临时API、旧 .artifacts/.scratch/validation/outputs 不自动搬迁或登记；仍沿各自消费者和旧任务规则退出。禁止用返回目录存原始业务输入或永久数据。后台配置状态以个人调度回执为准，本文接入不证明任务已安装。
+
+## 已核实的原生产者
+
+- `tools/skill_package.py` 的结果为stdout，运行日志由调用方选择路径；新调用方使用本项目登记入口。`workspace_check.py paths`为只读路径查询，不伪装成会创建/结项的产物生产者。
+- `project-handoff/scripts/compaction_reminder.py` 产生会话状态并继续被hook读取，由该技能现有状态生命周期管理；不把会话状态复制为可自动删除的证据。
+- 包测试使用系统TemporaryDirectory和本地隔离仓，沿原生退出机制；源码、模板和安装记录不进入通用到期清理。
+
+以上是按用途区分的接入结果；保留业务路径不是将其纳入定时删除。
