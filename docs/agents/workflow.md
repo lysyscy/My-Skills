@@ -2,7 +2,7 @@
 
 ## 规则与事实来源
 
-来源仓库 lysyscy/My-Skills。本仓普通方法为 [execution.md](../../skills/implement-solo-spec/references/execution.md)，子 Agent 前读 [delegation.md](../../skills/implement-solo-spec/references/delegation.md)，文档受影响时读 [document-maintenance.md](../../skills/setup-solo-workflow/references/document-maintenance.md)。已固定任务保持原规则、版本与授权。
+来源仓库 lysyscy/My-Skills；本仓采用来源为本仓同一Git检出中的技能与模板；项目正文是本仓实际采用版本。普通工作按本项目 CONTRIBUTING 与适用专题；宿主规则单独布置并核实际加载，模板文件存在不代表部署完成。已固定任务保持原规则、版本与授权。
 
 当前包结构见 [architecture.md](../architecture.md)；核验实现、规则及清单的权威分别是 tools/、skills/ 和 [skill-package.json](../../skill-package.json)。本轮范围、固定版本、验证及未决项留在任务已有记录；不建立发布状态机。旧运行的 Git common dir/workflow-state/runs/ 原位保留。
 
@@ -17,3 +17,9 @@
 ## 共享记忆身份
 
 本仓及其维护工作树固定使用 `project-d1109f2e2837a7f2`。个人技能的采用背景和维护经验归该项目库；跨项目长期偏好才进入个人库。当前方法、许可、安装/发布和验收边界仍由本仓技能及清单持有，历史记忆不替代现行版本。
+
+## 旧入口的兼容范围
+
+新实施入口使用项目已采用规则。implement 的 execution、verification、human-collaboration、delegation、codex-model-routing 及 setup 的 references/agent-instructions 暂按原内容保留，服务尚未切换的独立工作树、已有固定任务及用户自行管理的宿主。项目是否已迁移以各项目的采用记录为准，发布不自动切换在途任务基线。新接入不再建立这条旧链，已有调用者按其采用版本解释，不同时应用两套流程。
+
+Codex 共同入口已独立布置；其他宿主共同规则由用户自行维护，不纳入本轮迁移。旧文件只有在具体消费者退出后才退役，不因新模板发布而删除。

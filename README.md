@@ -7,15 +7,15 @@
 业务技能的维护源留在各业务项目，不纳入本仓 skills 目录；分发按各项目已采用的维护协议，通过 Skills Manager 更新已登记的派生副本并保持现有授权范围。开发与跨项目方法继续沿现有管理、验证和同步流程；共享基础工具保持其原渠道。
 
 - [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：接入、修复项目绑定及获批的专项文档迁移。
-- [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：显式启动或接续实施。普通已授权任务由项目绑定读取同一 [execution.md](skills/implement-solo-spec/references/execution.md)，不必先建规格或拆票；复杂统筹按采用授权触发。
-- [Codex 模型调度总则](skills/implement-solo-spec/references/codex-model-routing.md)：主控按任务自主选择子 Agent 模型与推理强度；选型或调整时查阅。
+- [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：显式启动或接续实施。普通任务读取项目已采用的工作规则，不必先建规格或拆票；复杂统筹按采用授权触发。
+- [setup 布置模板](skills/setup-solo-workflow/templates/README.md)：由 setup 按实际项目选用；宿主共同规则包含跨场景委派核参，模板不是日常入口。
 - [improve-workflow](skills/improve-workflow/SKILL.md)：按真实证据复盘；获准个人包维护才验证和保存候选，按权限使用 Git 与 Skills Manager，只读分析止于结论。
 
 - [project-handoff](skills/project-handoff/SKILL.md)：个人维护的交接保存与提醒；完整资源和计数器同源维护，上游来源及许可见技能维护页。
 
-新项目的所有资料、运行数据与开发产物按[固定工作区契约](skills/setup-solo-workflow/references/document-layout.md)分类；结合Matt任务规格/逐票结构，每次授权改动及阶段结束处理相关资料；有效知识归现行主人，Git可追溯且无活动用途的原文默认退出，必要非Git证据与具名历史例外按各自生命周期处理，并通过已触发的收尾检查。老项目按具名消费者迁移，原始数据与在途任务保留边界。
+本项目的资料与运行产物按[项目资源规则](docs/guides/workspace-lifecycle.md)处理；其他项目按各自已采用正文运行。新项目接入或获批布局迁移时，setup 才使用目录设计方法选定适用规则并布置。
 
-本仓入口见 [工作流绑定](docs/agents/workflow.md)，当前结构见 [架构](docs/architecture.md)。文档受影响时读 [日常维护](skills/setup-solo-workflow/references/document-maintenance.md)，新落点或专项迁移再读对应参考。项目只绑定来源、事实主人、实际验收/隔离/保存机制，不复制通用正文。
+本仓入口见[工作流绑定](docs/agents/workflow.md)，结构见[架构](docs/architecture.md)。普通维护按[贡献指南](CONTRIBUTING.md)执行；只有修改 setup 方法或执行接入/专项迁移时才读取相应技能参考。项目运行副本由中央模板受控分发，保护本地适配和在途基线。
 
 维护来源为 [lysyscy/My-Skills](https://github.com/lysyscy/My-Skills)；维护者从[贡献指南](CONTRIBUTING.md)进入适用流程。普通新会话只定位所需规则，不自动更新或发布。
 

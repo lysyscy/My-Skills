@@ -40,10 +40,10 @@ class SetupFixtureTests(unittest.TestCase):
         self.assertTrue(any("AGENTS.md" in error for error in errors))
         self.assertTrue(any("extra.md" in error for error in errors))
 
-    def test_repeat_uses_current_fixed_execution_resources(self):
+    def test_repeat_uses_project_rules_and_only_scoped_coordination(self):
         entry = (self.root / "repeat/AGENTS.md").read_text(encoding="utf-8")
         package = self.skill.parents[2]
-        for name in ("execution", "delegation", "coordination"):
+        for name in ("coordination",):
             target = package / f"skills/implement-solo-spec/references/{name}.md"
             self.assertIn(f"]({target.as_posix()})", entry)
             self.assertTrue(target.is_file())
@@ -275,13 +275,13 @@ class RealResourceLayoutTests(unittest.TestCase):
         self.catalog = []
         for directory, owner, resource in (("independent/library-a", "setup-solo-workflow", "references/document-maintenance.md"),
                                            ("unrelated/library-b", "improve-workflow", "references/package-operations.md"),
-                                           ("another/location-c", "implement-solo-spec", "references/execution.md")):
+                                           ("another/location-c", "implement-solo-spec", "SKILL.md")):
             original = source / "skills" / owner
             target = self.root / directory / owner
             shutil.copytree(original, target)
             resources = [resource]
             if owner == "implement-solo-spec":
-                resources.extend("references/" + name + ".md" for name in ("coordination", "delegation", "verification"))
+                resources.extend("references/" + name + ".md" for name in ("coordination",))
             if owner == "improve-workflow":
                 resources.append("references/behavior-evaluation.md")
             self.catalog.append({"origin": "lysyscy/My-Skills", "owner": owner,
@@ -296,10 +296,10 @@ class RealResourceLayoutTests(unittest.TestCase):
             self.assertEqual(text, (Path(record["entry"]).parent / resource).read_bytes())
         self.assertNotEqual(Path(self.catalog[0]["entry"]).parent.parent, Path(self.catalog[1]["entry"]).parent.parent)
 
-    def test_copied_execution_reaches_its_real_specialist_resources(self):
+    def test_copied_entry_reaches_its_actual_coordination_resource(self):
         record = next(r for r in self.catalog if r["owner"] == "implement-solo-spec")
-        execution = read_pinned_reference(self.catalog, record["owner"], "references/execution.md").decode("utf-8")
-        for name in ("coordination", "delegation", "verification"):
+        execution = read_pinned_reference(self.catalog, record["owner"], "SKILL.md").decode("utf-8")
+        for name in ("coordination",):
             self.assertIn(name + ".md", execution)
             resource = "references/" + name + ".md"
             actual = read_pinned_reference(self.catalog, record["owner"], resource)

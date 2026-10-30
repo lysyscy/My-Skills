@@ -1,7 +1,7 @@
 # My-Skills 工作入口
 
-按当前请求的范围与权限工作，只读请求不实施。开发、维护或审查先读[贡献指南](CONTRIBUTING.md)，再沿其指针读取适用规则；方法来源、固定基线和项目绑定见 [workflow](docs/agents/workflow.md)。
+按当前请求工作，只读分析不实施。开发、维护或审查先读 [贡献指南](CONTRIBUTING.md)，按动作进入业务、验证与发布主人；采用来源见 [工作流绑定](docs/agents/workflow.md)。
 
-普通已授权实施读取绑定所指 execution.md；文档受影响时读 document-maintenance.md，新落点或专项迁移再读对应参考。这是读取普通规则文件，不是隐式调用显式实施技能。任何创建子 Agent 前必读同来源 delegation.md 并显式采用允许配置。
+普通任务按贡献指南实施，不必调用实施技能或查技能包执行手册。跨票统筹才读已采用的 implement-solo-spec 统筹参考；委派遵守宿主实际调用约束。文档职责改变或技能规则维护时使用实际安装的 writing-for-agents。
 
-维护用 Git 保存源，Skills Manager 管理更新、部署与多端备份；本仓工具只作核验。已固定的旧运行保留自己的 entry/runtime、原测试和授权，候选不能接管旧运行。来源或资源缺口只阻塞依赖动作。真实发布、安装与部署遵守当前请求和包授权。
+模板与候选不是已部署规则。技能维护先读 [包维护规范](skills/improve-workflow/references/package-operations.md)，保护其他任务修改与固定旧运行；按当次权限保存、验证、发布和安装。

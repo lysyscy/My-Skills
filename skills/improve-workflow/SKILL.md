@@ -47,6 +47,6 @@ description: 复盘当前或指定会话，按真实轨迹发现工作环境与�
 
 ## 按需维护与上游适配
 
-获准维护自有技能时，按 [package-operations.md](references/package-operations.md) 选择唯一维护源、固定执行基线并完成适用的发布核验；候选不能改写自身验收或旧基线来取得通过。跨技能按真实入口、所属来源与固定版本定位，不假设安装相邻。实施与唯一收尾回同来源 implement-solo-spec/references/execution.md；修改指令文档沿 setup 所属文档维护规则，不在复盘层另加一轮审查、验收或发布流程。
+获准维护自有技能时，按 [package-operations.md](references/package-operations.md) 选择唯一维护源、固定执行基线并完成适用的发布核验；候选不能改写自身验收或旧基线来取得通过。跨技能按真实入口、所属来源与固定版本定位，不假设安装相邻。实施与收尾按项目已采用的 CONTRIBUTING 和当次验收；修改指令文档沿 setup 所属文档维护规则，不在复盘层另加一轮审查、验收或发布流程。
 
 外部能力更新、适配或完整调用原版时，读 [improvement-selection.md 的上游分支](references/improvement-selection.md#上游适配与完整调用)。日常复盘消费本技能的方法；原版继续由原渠道独立维护。

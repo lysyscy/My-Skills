@@ -28,7 +28,7 @@ My Skills 用 Git 编辑、验证和发布源；官方 Skills Manager 管理中�
 
 本次仅分析或候选时停在相应边界；已明确授权完整发布同步时，沿下列顺序执行源发布、CI核验、Manager更新、安装核验及备份推送，无需逐步重复询问。既有 `publish: automatic` 只表示清单授权范围，不替代本次限制。范围、覆盖冲突或必要权限有实质缺口时保留待办并询问。
 
-完整收尾保留一份回执：源 SHA 与对应成功 CI、安装核验、Manager 检测结果、备份 SHA 和恢复后校准边界。归档、writing-for-agents 与文档层级由同来源 execution/document-maintenance 的唯一收尾验收处理；未满足项明确记为待办。
+完整收尾保留一份回执：源 SHA 与对应成功 CI、安装核验、Manager 检测结果、备份 SHA 和恢复后校准边界。归档、writing-for-agents 与文档层级按维护项目的收尾约定核验；未满足项明确记为待办。
 
 ## 定位与保护
 
@@ -40,7 +40,7 @@ My Skills 用 Git 编辑、验证和发布源；官方 Skills Manager 管理中�
 
 ## 修改、验证与 Git 保存
 
-普通实施和唯一收尾回同来源 `implement-solo-spec/references/execution.md`。纯文档检查语义、结构、引用与实际消费者；指令行为变更覆盖原问题、最近相关旧行为和失败分支。工具、测试、清单或共享契约变化执行清单中的相关回归及必要全套检查。按需行为实验见 [behavior-evaluation.md](behavior-evaluation.md)，不把实验设为每轮发布条件。
+普通实施和收尾按维护项目已采用的 CONTRIBUTING；只加载本次受影响的技能与参考。纯文档检查语义、结构、引用与实际消费者；指令行为变更覆盖原问题、最近相关旧行为和失败分支。工具、测试、清单或共享契约变化执行清单中的相关回归及必要全套检查。按需行为实验见 [behavior-evaluation.md](behavior-evaluation.md)，不把实验设为每轮发布条件。
 
 结构检查使用宿主真实系统 `skill-creator/scripts/quick_validate.py` 和已有可用解释器，不用中央库同名技能替代。调用 `uv run python tools/skill_package.py structure --source '<候选源>' --validator '<实际验证器>' --validation-python '<可 import yaml 的解释器>'`。工具先探测依赖，再逐技能执行验证器，区分 `environment_blocked` 和 `validation_failed`，返回非零；摘要截断时按需补读原始失败。结构通过不证明行为正确。structure 会执行外部验证器，其副作用须按实际工具核实，严格只读观察只用预检及后验的查询和文件比对。
 
@@ -101,4 +101,4 @@ Git 发布、中央库更新、Agent 核验分别报告。部分失败在任务�
 
 已固定的旧运行继续原 entry/runtime、测试与输入；其 `workflow-state`、执行快照和恢复材料原位保留，新检查不读取或改写它们。接续旧发布或转移旧安装责任按该任务明确权限处理，不把新接口冒充旧运行成功。只清理本任务拥有且不再需要的现场，保留未发布候选、失败及恢复依据。
 
-读取与输出回同来源execution.md「读取与工具输出」；引用仍以所属文件解析，固定版本与必要完整性继续核实。测试夹具中的读取采样与接入/迁移状态仍服务其原验收，不属于退役的发布状态。
+读取限于当前动作所需正文；长输出保存到本轮日志，核实际退出码，按失败或进度需要读取；引用仍以所属文件解析，固定版本与必要完整性继续核实。测试夹具中的读取采样与接入/迁移状态仍服务其原验收，不属于退役的发布状态。

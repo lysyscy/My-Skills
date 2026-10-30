@@ -10,7 +10,13 @@ Python 工具只用标准库，由 [pyproject.toml](pyproject.toml)、[uv.lock](
 
 ## 修改技能与文档
 
-普通实施与唯一收尾按 [execution](skills/implement-solo-spec/references/execution.md)，文档修改按[日常维护](skills/setup-solo-workflow/references/document-maintenance.md)；新落点或专项迁移再读取所属参考。指令写作使用实际安装的 writing-for-agents。实现前与审查时按内容读取[架构](docs/architecture.md)、本次需求及相关技能正文；本仓不另复制一份通用编码规范。
+普通实施先核请求、验收和已有修改，完成实现、相关验证、受影响正文及授权收尾。按后果选择自查或独立审查，保留真实失败与未验项；无关失败不自动扩为修复任务。已有证据的输入与预期仍适用时复用，不默认增加票、流程或重复检查。
+
+写 Agent 消费资料使用实际安装的 writing-for-agents；维护本仓 setup 文档方法时才读取[文档维护源码](skills/setup-solo-workflow/references/document-maintenance.md)。本仓现行文档约定：同一事实由一个正文持有，新增或加强规则先展示内容与影响并获批，引用须可达；候选不覆盖固定旧运行。跨技能维护先核真实来源，原版保持原渠道，不将分析建议当成现行规范。
+
+实施前按受影响主题读取[架构](docs/architecture.md)、需求或技能正文；只移动内容时核等价，退役时同步修消费者。源码、模板、已安装文件和实际宿主加载分别核实，测试通过不代表发布完成。
+
+临时资源按[本项目资源规则](docs/guides/workspace-lifecycle.md)退出，保留原件、独有状态、其他任务与必要恢复依据。
 
 技能运行所需规则、脚本和参考保留在所属技能内，避免安装单个技能后丢失依赖。需要验证行为变化时按[轻量观察与严格对照的分支](skills/improve-workflow/references/behavior-evaluation.md)取证，文件与结构通过不代替真实消费效果；已固定运行保留原基线。
 

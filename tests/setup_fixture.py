@@ -91,8 +91,8 @@ def prepare(root, skill):
         put(project, ".codebuddy/agents/implementer.md", role)
         if name == "repeat":
             with (project / "AGENTS.md").open("a", encoding="utf-8") as stream:
-                stream.write(f"生成/修改文档及任务收尾必须读 [维护方法]({maintenance.as_posix()})；项目绑定见 docs/agents/workflow.md。\n"
-                             f"普通授权任务读 [实施方法]({(implement / 'execution.md').as_posix()})；任何创建子代理前读 [委派规则]({(implement / 'delegation.md').as_posix()}) 并显式配置；明确采用跨批统筹时读 [统筹方法]({(implement / 'coordination.md').as_posix()})。\n"
+                stream.write("生成/修改文档及任务收尾遵守项目已采用规则；项目绑定见 docs/agents/workflow.md。\n"
+                             f"普通授权任务按本项目已采用工作规则实施；任何创建子代理前遵守宿主委派核参要求；明确采用跨批统筹时读 [统筹方法]({(implement / 'coordination.md').as_posix()})。\n"
                              "新会话仅定位本次需要的规则及来源，不自动同步；复盘个人方法用 improve-workflow。\n")
             put(project, "docs/agents/workflow.md", "# 项目绑定\n现行业务 docs/product.md 原地维护；effort 在 .scratch/<feature>/spec.md 与 issues/，引用业务。\n"
                 "历史 .scratch/old/ 保留；票协议见 issues.md；领域见根词汇表与 adr/。\n"
