@@ -1,6 +1,6 @@
 # 行为观察与按需严格对照
 
-由 improvement-selection 按实际需要路由；本文件不拥有实施、提交、发布或安装权限。实施与唯一收尾仍回同来源 implement-solo-spec，源保存与安装核验回 [package-operations.md](package-operations.md)。
+由 improvement-selection 按实际需要路由；本文件不拥有实施、提交、发布或安装权限。实施与收尾按项目已采用规则及当次验收，源保存与安装核验回 [package-operations.md](package-operations.md)。
 
 ## 普通调整：轻量观察
 

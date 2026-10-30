@@ -18,5 +18,3 @@
 本仓入口见[工作流绑定](docs/agents/workflow.md)，结构见[架构](docs/architecture.md)。普通维护按[贡献指南](CONTRIBUTING.md)执行；只有修改 setup 方法或执行接入/专项迁移时才读取相应技能参考。项目运行副本由中央模板受控分发，保护本地适配和在途基线。
 
 维护来源为 [lysyscy/My-Skills](https://github.com/lysyscy/My-Skills)；维护者从[贡献指南](CONTRIBUTING.md)进入适用流程。普通新会话只定位所需规则，不自动更新或发布。
-
-[历史试跑](docs/archive/2026-10-workflow-trials.md) 仅在追溯时读取，不证明今天安装、长期速度或Token收益。
