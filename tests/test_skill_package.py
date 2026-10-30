@@ -65,7 +65,7 @@ class PackageFixture(unittest.TestCase):
 
 class SourceChecks(PackageFixture):
     def test_current_markdown_references_resolve(self):
-        documents = [ROOT / "README.md", ROOT / "AGENTS.md", *list((ROOT / "skills").rglob("*.md")),
+        documents = [ROOT / "README.md", ROOT / "AGENTS.md", ROOT / "CONTRIBUTING.md", *list((ROOT / "skills").rglob("*.md")),
                      ROOT / "docs/architecture.md", ROOT / "docs/agents/workflow.md"]
         for document in documents:
             for target in re.findall(r"\[[^\]]*\]\(([^)]+)\)", document.read_text(encoding="utf-8")):

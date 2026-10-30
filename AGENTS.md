@@ -1,6 +1,6 @@
 # My-Skills 工作入口
 
-按当前请求的范围与权限工作，只读请求不实施。项目事实、验收/隔离/保存入口和规则来源见 [工作流绑定](docs/agents/workflow.md)。
+按当前请求的范围与权限工作，只读请求不实施。开发、维护或审查先读[贡献指南](CONTRIBUTING.md)，再沿其指针读取适用规则；方法来源、固定基线和项目绑定见 [workflow](docs/agents/workflow.md)。
 
 普通已授权实施读取绑定所指 execution.md；文档受影响时读 document-maintenance.md，新落点或专项迁移再读对应参考。这是读取普通规则文件，不是隐式调用显式实施技能。任何创建子 Agent 前必读同来源 delegation.md 并显式采用允许配置。
 

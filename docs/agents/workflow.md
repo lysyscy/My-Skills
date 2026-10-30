@@ -8,9 +8,9 @@
 
 ## 检查、隔离与保存
 
-检查以 skill-package.json 的 checks 为准；结构验证器从宿主真实系统路径按 [包操作](../../skills/improve-workflow/references/package-operations.md) 定位。隔离依据 [setup_fixture.py](../../tests/setup_fixture.py)、[test_skill_package.py](../../tests/test_skill_package.py)、[test_manager_sync.py](../../tests/test_manager_sync.py) 和 [test_distribution.py](../../tests/test_distribution.py)。所有测试写入限临时本地仓及夹具目录；Manager fake 仅响应查询，实际文件缺失、陈旧、独有修改和错误来源必须使核验失败。分发用本地裸仓和接收端克隆覆盖CI失败、未推送备份、unknown状态和恢复后缺少基准的校准边界。
+开发检查与隔离入口见[贡献指南](../../CONTRIBUTING.md)。结构验证器从宿主真实系统路径按[包操作](../../skills/improve-workflow/references/package-operations.md)定位；不从普通项目的工作目录猜测安装路径。
 
-维护授权、远端和分支以清单为唯一来源；本次请求的限制优先。维护入口是 [improve-workflow](../../skills/improve-workflow/SKILL.md)。完整发布按包操作核源、CI、Manager更新、真实部署、更新检测及备份远端；候选阶段止于隔离分支。普通无远端项目的保存分支不改变本包的 origin 保护。
+维护入口是 [improve-workflow](../../skills/improve-workflow/SKILL.md)，保存与分发从[贡献指南](../../CONTRIBUTING.md)进入包操作。普通无远端项目的保存分支不改变本包的 origin 保护；候选阶段止于获准的候选范围。
 
 [历史试跑](../archive/2026-10-workflow-trials.md) 仅供追溯，不证明当前部署或其他机器状态。本仓不复制业务项目目录、票号、领域规则和命令。
 

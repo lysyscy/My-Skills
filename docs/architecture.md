@@ -8,7 +8,9 @@ skill-package.json 是授权、远端、分支、CI工作流、依赖保护及�
 
 improve-workflow/references/behavior-evaluation.md 拥有按需行为对照协议；setup-evaluation 保留接入场景、夹具与保护条件，通过同来源定位复用协议，不新增运行器或状态机。
 
-源修改按风险验证，经普通Git发布并核对应CI后，由官方Skills Manager更新、部署和推送备份。更新前JSON保存本轮预期来源与选择，安装后核同一提交的资源、身份和部署集合；分发后验再核更新检测、备份远端SHA和提交内真实个人技能。备份不保存版本基准时，显式要求恢复后官方更新校准，不假报原生跨设备提醒正常。必要记录留在当前任务，既有Git common dir/workflow-state/runs/及其执行快照保持原位。
+发布与安装链的唯一方法由[包操作](../skills/improve-workflow/references/package-operations.md)持有，工具只核验各阶段证据。必要记录留在当前任务，既有Git common dir/workflow-state/runs/及其执行快照保持原位。
+
+setup 的[documentation](../skills/setup-solo-workflow/references/documentation.md)持有文档读者、权威与内容分工，裁剪采用Diátaxis、arc42、ADR和随变更维护实践；document-layout持有物理位置及产物生命周期，document-maintenance负责日常同步。implement消费受影响资料并统一收尾，improve从实际阅读/维护问题判断是否需要重构，不建立另一套流程。
 
 project-handoff自带Codex/Claude生命周期适配器及模板，状态只归各宿主session，不与业务数据或包发布记录混用；根tests中的project-handoff和Claude回归消费同一维护源，运行事件均限隔离状态。
 
