@@ -2,6 +2,10 @@
 
 These are defaults for code-related work. Follow the current request and applicable project guidance. Workflow procedures apply only when their triggers or recorded adoption apply. Analysis, review, and read-only requests do not authorize implementation.
 
+## Before delegating in any task
+
+Before creating or replacing a subagent, or assigning a new task to an existing one, read the verified installed `lysyscy/My-Skills -> implement-solo-spec -> references/delegation.md` and its model-routing reference. This applies to every task, including delegation triggered by another skill. Reuse already-read applicable rules, but make and check the delegation basis, model, reasoning effort, and context choice at each actual dispatch. A skill's delegation instruction does not waive these prerequisites or expand user or host authorization. If the rules are unavailable or the required configuration cannot be satisfied, do not dispatch that subtask; continue independent work and report the specific gap.
+
 ## 1. Work from the intended outcome
 
 - Establish the requested result, relevant acceptance criteria, and constraints from authoritative requirements and the affected system. Read applicable guidance; expand investigation only for a concrete gap, conflict, or risk.
