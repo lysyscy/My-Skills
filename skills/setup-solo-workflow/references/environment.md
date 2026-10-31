@@ -14,7 +14,7 @@
 
 | 生态 | 共享主体 | 项目隔离及准备 |
 | --- | --- | --- |
-| Python | uv 受管 Python 与缓存；查询 `uv python dir`、`uv cache dir` | 保留 `pyproject.toml`、`uv.lock`、`.venv`；已锁项目授权同步用 `uv sync --locked`，运行用 `uv run --locked`。新项目 Python 默认及例外由 setup 入口持有 |
+| Python | uv 受管 Python 与缓存；查询 `uv python dir`、`uv cache dir` | 保留 `pyproject.toml`、`uv.lock`、`.venv`；已锁项目授权同步用 `uv sync --locked`，运行用 `uv run --locked`。新项目按实际兼容性选择版本并写入项目声明；已有项目沿其声明与例外 |
 | Node | 已有 Node 安装；pnpm 内容寻址 store，查询 `pnpm store path` | 保留 `packageManager`、锁文件、独立 `node_modules`。pnpm 授权准备用 `pnpm install --frozen-lockfile`；其他管理器沿原入口，迁换须有项目授权 |
 | Rust | rustup 工具链、Cargo 下载/注册表缓存 | 保留项目 `target` 与 feature/target/编译选项；有实测收益再考虑编译缓存 |
 | Go | 官方工具链及 `go env GOMODCACHE GOCACHE` 所示缓存 | 尊重 `go.mod`、`GOTOOLCHAIN` 与项目输出 |
@@ -34,12 +34,12 @@ Windows 同卷时优先管理器支持的硬链接/导入模式；跨卷接受�
 - Node 核运行时、管理器解析路径与声明版本，用项目现有测试验证实际依赖解析。准备与只读检查分开，offline install 仍是写操作。frozen 安装须暴露锁失配；workspace 沿管理器原契约，不另写锁解析器。
 - 仅在当前任务授权的准备场景安装/同步，检查退出码；已满足直接复用。缓存不可写或网络受限等错误保留原始归因，不吞错或无限重试。
 
-全局宿主入口仅指向本参考；按同来源、固定版本定位，不假设独立技能相邻。项目绑定保留其真实测试/环境入口及例外。需要强制保障的项目在已有测试/任务入口接入原生检查；未接入的项目只证明本次 Agent 行为，不宣称所有未来命令均被拦截。
+接入时将必要环境约束布置到项目实际主人，项目绑定指向真实测试/环境入口及例外；日常任务沿项目入口，不回读 setup 参考。接入所需技能按同来源、固定版本定位，不假设独立技能相邻。需要强制保障的项目在已有测试/任务入口接入原生检查；未接入的项目只证明本次 Agent 行为，不宣称所有未来命令均被拦截。
 
 ## 验证与完成
 
-共享配置变更前记录原值、来源、消费者和回滚方式，绝对路径只留本机配置。优先原生用户配置，避免仅靠当前 profile；已有进程可能保留旧环境，分别验证新 PowerShell、无 profile 进程和实际 GUI，不互相替代。
+共享配置变更前记录原值、来源、消费者和回滚方式，绝对路径只留本机配置。优先原生用户配置，避免仅靠当前 profile；已有进程可能保留旧环境，按受影响的实际入口核新 PowerShell、无 profile 进程或 GUI；不同入口的证据不互相替代。
 
-策略变更以本轮独立夹具证明同精确运行时、同包文件共享、不同版本隔离、删除一个夹具另一个仍工作、同锁重复同步、跨卷复制和错误非零。只清理本轮拥有的夹具，旧安装、共享缓存及活跃项目保留。宿主变更后需有无环境提示的新 Agent 读取及执行证据；源、CI、Manager、宿主分别核验，未测标 unknown 或未执行。
+策略变更按受影响行为选择最小夹具集合，项目必跑检查仍执行，输入与预期未变的有效证据复用：共享策略核同精确运行时、同包文件共享及不同版本隔离；生命周期策略核删除一个夹具另一个仍工作；同步策略核同锁重复同步；跨卷策略核复制回退；错误处理核非零退出。相关检查通过、实质发现关闭即停止验证；仅新改动、新失败或明确覆盖缺口才能扩测或重复，并说明新增问题，不为更放心、更完整或增加通过数而加码。只清理本轮拥有的夹具，旧安装、共享缓存及活跃项目保留。影响宿主环境读取或执行路径时，核无环境提示的新 Agent 行为；源、CI、Manager、宿主分别说明覆盖范围，未测标 unknown 或未执行。
 
 工具语义按实际版本及官方资料核对：[uv 缓存](https://docs.astral.sh/uv/concepts/cache/)、[uv CLI](https://docs.astral.sh/uv/reference/cli/)、[pnpm 配置](https://pnpm.io/configuring)、[pnpm 链接结构](https://pnpm.io/symlinked-node-modules-structure)。

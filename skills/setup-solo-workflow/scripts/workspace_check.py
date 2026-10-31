@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import re
 import stat
+import sys
 
 KINDS = ('logs', 'reports', 'screenshots', 'traces', 'exports', 'downloads', 'work', 'recovery')
 TASK_FILES = {'spec.md', 'research.md', 'questions.md', 'map.md', 'evidence.md', 'handoff.md'}
@@ -159,7 +160,13 @@ def main() -> int:
         if args.lifecycle_root is not None:
             if args.action != 'check' or args.root is not None or args.effort is not None:
                 raise ValueError('lifecycle check cannot mix legacy arguments')
-            import artifact_lifecycle
+            # This read-only command must not create caches in the installed skill.
+            previous_bytecode = sys.dont_write_bytecode
+            try:
+                sys.dont_write_bytecode = True
+                import artifact_lifecycle
+            finally:
+                sys.dont_write_bytecode = previous_bytecode
             rows = artifact_lifecycle.sweep(args.lifecycle_root)
             ok = not any(v['status'] in {'error', 'changed', 'review-due'} for v in rows)
             print(json.dumps({'ok': ok, 'groups': rows}, ensure_ascii=False))

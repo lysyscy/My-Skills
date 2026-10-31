@@ -21,13 +21,13 @@ STATE_NAME = re.compile(r"[0-9a-f]{64}")
 
 
 @contextmanager
-def locked(path):
+def locked(path, timeout=2):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a+b") as handle:
         if handle.tell() == 0:
             handle.write(b"0")
             handle.flush()
-        deadline = time.monotonic() + 2
+        deadline = time.monotonic() + timeout
         while True:
             try:
                 if os.name == "nt":
@@ -87,35 +87,40 @@ def fresh_state(session):
 
 
 def sweep(root, keep):
-    """Remove this skill's own state files untouched for RETENTION_DAYS.
+    """Remove old, valid session state without discarding user choices.
 
-    Runs on automatic compaction only. Staleness is judged by the .json file so
-    an active session's lock file is never removed from under it. Only names
-    this script creates are touched. Failures are ignored: housekeeping must
-    not affect counting.
+    Take each target's lock without waiting, then recheck its state and age.
+    Keep lock files as stable coordination identities: unlinking a lock can
+    separate existing waiters from later callers on POSIX.
     """
     cutoff = time.time() - RETENTION_DAYS * 86400
-    groups = {}
     try:
-        for p in root.iterdir():
-            if (STATE_NAME.fullmatch(p.stem) and p.suffix in {".json", ".lock", ".tmp"}
-                    and p.stem != keep.stem):
-                groups.setdefault(p.stem, []).append(p)
+        candidates = list(root.iterdir())
     except OSError:
         return
-    # Decide per session before deleting, so a lock never outlives its state file.
-    for files in groups.values():
-        anchors = [p for p in files if p.suffix == ".json"] or files
-        try:
-            if max(p.stat().st_mtime for p in anchors) >= cutoff:
-                continue
-        except OSError:
+    for path in candidates:
+        if (path.suffix != ".json" or not STATE_NAME.fullmatch(path.stem)
+                or path.stem == keep.stem):
             continue
-        for entry in sorted(files, key=lambda p: p.suffix != ".json"):
-            try:
-                entry.unlink()
-            except OSError:
-                pass  # In use or already gone; retry at a later compaction.
+        lock = path.with_suffix(".lock")
+        pending = path.with_suffix(".tmp")
+        try:
+            if path.is_symlink() or lock.is_symlink() or path.stat().st_mtime >= cutoff:
+                continue
+            with locked(lock, timeout=0):
+                # A resumed writer may have refreshed the state before we got the lock.
+                if path.is_symlink() or pending.exists() or pending.is_symlink() or path.stat().st_mtime >= cutoff:
+                    continue
+                raw = json.loads(path.read_text(encoding="utf-8"))
+                session = raw.get("session_id") if isinstance(raw, dict) else None
+                if not isinstance(session, str) or not session or state_path(root, session) != path:
+                    continue
+                state = read_state(path, session)
+                if state["muted"] or state.get("defer_until") is not None:
+                    continue
+                path.unlink()
+        except (OSError, ValueError, TypeError, KeyError):
+            pass  # Busy, corrupt or incomplete state stays intact; counting continues.
 
 
 def read_state(path, session):

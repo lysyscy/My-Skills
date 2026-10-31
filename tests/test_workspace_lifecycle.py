@@ -2,6 +2,8 @@
 from datetime import date, timedelta
 import importlib.util
 import json
+import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -111,6 +113,32 @@ class WorkspaceTests(unittest.TestCase):
         self.archive()
         self.put('.artifacts/archive/example/r1/work/source.py')
         self.assertTrue(any('temporary work' in e for e in self.check('closed')))
+
+    def test_lifecycle_cli_keeps_the_installed_skill_tree_unchanged(self):
+        install = self.root / "installed-scripts"
+        install.mkdir()
+        for name in ("workspace_check.py", "artifact_lifecycle.py"):
+            shutil.copy2(SCRIPT.parent / name, install / name)
+        lifecycle = self.root / "owned-output"
+        enrolled = subprocess.run([sys.executable, str(install / "artifact_lifecycle.py"),
+                                   "enroll", "--root", str(lifecycle)], capture_output=True,
+                                  text=True, encoding="utf-8", check=False)
+        self.assertEqual(enrolled.returncode, 0, enrolled.stderr)
+        before = {p.relative_to(install): p.read_bytes()
+                  for p in install.rglob("*") if p.is_file()}
+        env = dict(os.environ)
+        env.pop("PYTHONDONTWRITEBYTECODE", None)
+        env.pop("PYTHONPYCACHEPREFIX", None)
+        checked = subprocess.run([sys.executable, str(install / "workspace_check.py"),
+                                  "check", "--lifecycle-root", str(lifecycle)], env=env,
+                                 capture_output=True, text=True, encoding="utf-8", check=False)
+        self.assertEqual(checked.returncode, 0, checked.stderr)
+        self.assertTrue(json.loads(checked.stdout)["ok"])
+        after = {p.relative_to(install): p.read_bytes()
+                 for p in install.rglob("*") if p.is_file()}
+        self.assertEqual(set(after), set(before))
+        self.assertTrue(all(after[name] == body for name, body in before.items()))
+        self.assertFalse((install / "__pycache__").exists())
 
     def test_paths_cli_rejects_file_as_project_root(self):
         target = self.put('not-a-project')

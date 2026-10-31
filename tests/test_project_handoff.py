@@ -11,6 +11,8 @@ import sys
 import tempfile
 import time
 import unittest
+from contextlib import contextmanager
+from unittest.mock import patch
 
 REPO = Path(__file__).resolve().parents[1]
 QA = Path(tempfile.gettempdir()) / "my-skills-test-output" / "project-handoff"
@@ -657,8 +659,9 @@ class ReminderTests(unittest.TestCase):
         self.compact()
         stale = m.state_path(self.root, "old-session")
         fresh = m.state_path(self.root, "recent-session")
-        for p in (stale, stale.with_suffix(".lock"), fresh, fresh.with_suffix(".lock")):
-            p.write_text("{}", encoding="utf-8")
+        for path, session in ((stale, "old-session"), (fresh, "recent-session")):
+            path.write_text(json.dumps(m.fresh_state(session)), encoding="utf-8")
+            path.with_suffix(".lock").write_text("0", encoding="utf-8")
         foreign = self.root / "notes.json"
         foreign.write_text("{}", encoding="utf-8")
         for p in (stale, stale.with_suffix(".lock"), foreign):
@@ -669,10 +672,91 @@ class ReminderTests(unittest.TestCase):
         self.age(own, 90)  # The calling session is never swept.
         self.compact()
         self.assertFalse(stale.exists())
-        self.assertFalse(stale.with_suffix(".lock").exists())
+        self.assertTrue(stale.with_suffix(".lock").exists())
         self.assertTrue(fresh.exists() and fresh.with_suffix(".lock").exists())
         self.assertTrue(foreign.exists())
         self.assertEqual(self.status()["auto_count"], 2)
+
+    def test_sweep_preserves_stale_user_silence_and_checkpoint(self):
+        self.compact()
+        for session, changes in (("muted", {"muted": True}),
+                                 ("checkpoint", {"defer_until": "approved-stage"})):
+            state = dict(m.fresh_state(session), auto_count=3, **changes)
+            path = m.state_path(self.root, session)
+            path.write_text(json.dumps(state), encoding="utf-8")
+            self.age(path, 61)
+            before = path.read_bytes()
+            self.compact()
+            self.assertTrue(path.exists(), session)
+            self.assertEqual(path.read_bytes(), before)
+            resumed = m.process(dict(session_id=session, turn_id="resumed",
+                                     hook_event_name="UserPromptSubmit"), self.root)
+            self.assertIn("additionalContext", resumed["hookSpecificOutput"])
+            saved = m.process(dict(session_id=session), self.root, "status")
+            for key, value in changes.items():
+                self.assertEqual(saved[key], value)
+
+    def test_sweep_skips_another_process_holding_the_session_lock(self):
+        self.compact()
+        session = "resuming-session"
+        path = m.state_path(self.root, session)
+        path.write_text(json.dumps(m.fresh_state(session)), encoding="utf-8")
+        self.age(path, 61)
+        code = """import importlib.util, sys
+from pathlib import Path
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location('reminder', sys.argv[1])
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+with m.locked(Path(sys.argv[2])):
+    print('locked', flush=True)
+    sys.stdin.readline()
+"""
+        child = subprocess.Popen([sys.executable, "-X", "utf8", "-c", code,
+                                  str(SCRIPT), str(path.with_suffix(".lock"))],
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, text=True, encoding="utf-8")
+        try:
+            self.assertEqual(child.stdout.readline().strip(), "locked")
+            self.compact()
+            self.assertTrue(path.exists())
+        finally:
+            _, stderr = child.communicate("release\n", timeout=5)
+        self.assertEqual(child.returncode, 0, stderr)
+        self.compact()
+        self.assertFalse(path.exists())
+        self.assertTrue(path.with_suffix(".lock").exists())
+
+    def test_sweep_rechecks_mtime_after_acquiring_the_session_lock(self):
+        self.compact()
+        path = m.state_path(self.root, "just-resumed")
+        path.write_text(json.dumps(m.fresh_state("just-resumed")), encoding="utf-8")
+        self.age(path, 61)
+        original_lock = m.locked
+
+        @contextmanager
+        def resumed_before_lock(lock_path, **kwargs):
+            with original_lock(lock_path, **kwargs):
+                if lock_path == path.with_suffix(".lock"):
+                    os.utime(path, None)
+                yield
+
+        with patch.object(m, "locked", resumed_before_lock):
+            m.sweep(self.root, m.state_path(self.root, self.sid))
+        self.assertTrue(path.exists())
+
+    def test_sweep_preserves_unrecognized_or_incomplete_state(self):
+        self.compact()
+        unknown = m.state_path(self.root, "unknown")
+        incomplete = m.state_path(self.root, "incomplete")
+        unknown.write_text("{}", encoding="utf-8")
+        incomplete.write_text(json.dumps(m.fresh_state("incomplete")), encoding="utf-8")
+        pending = incomplete.with_suffix(".tmp")
+        pending.write_text("interrupted write", encoding="utf-8")
+        for path in (unknown, incomplete, pending):
+            self.age(path, 61)
+        self.compact()
+        self.assertTrue(all(path.exists() for path in (unknown, incomplete, pending)))
 
     def test_prompts_and_manual_compaction_do_not_sweep(self):
         self.compact()

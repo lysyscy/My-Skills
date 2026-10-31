@@ -20,4 +20,4 @@
 
 ## 已接入的个人产物生命周期
 
-2026-10-30采用个人包 e1ab206 的[产物生命周期](../guides/artifact-lifecycle.md)。新登记产物由 tools/artifact_lifecycle.py 管理，普通30天、明确跨月60天、未决局部保护。专用运行区在本机用户目录，保留本项目原件/云同步等例外；上文旧目录与retention约定仅继续服务未迁移的原生产者及固定旧任务，不把旧目录交给定时器扫描。
+2026-10-30采用个人包 e1ab206 的[产物生命周期](../guides/artifact-lifecycle.md)。当前任务从[资源入口](../guides/workspace-lifecycle.md)选路：新产物使用 tools/artifact_lifecycle.py 的 register/lease/close，普通30天、明确跨月60天、未决局部保护。专用运行区在本机用户目录，保留本项目原件/云同步等例外；旧目录、retention.json及旧workspace_check仅服务未迁移原生产者和固定旧任务，保持原30天日期契约，不把旧目录交给定时器扫描。

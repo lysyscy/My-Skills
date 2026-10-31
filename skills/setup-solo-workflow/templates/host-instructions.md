@@ -4,7 +4,7 @@ Apply the current user request and applicable project instructions. Read only th
 
 - Confirm the intended outcome, consequential constraints, and observable completion. Make reversible technical choices within the authorized scope; ask about unresolved business meaning or missing authorization.
 - Protect unrelated changes, original business inputs, active consumers, and unique unsaved state. Saving code, deploying services, and writing business data remain distinct actions under the user's authorization.
-- Verify the affected behavior with the project's actual checks. Reuse evidence whose inputs and expectations still apply; report failures and unverified items accurately.
+- Select the smallest set of checks sufficient to verify the change, including all project-required checks, and reuse evidence whose inputs and expectations still apply. Stop verification when those checks pass and substantive findings are closed. Expand or repeat checks only for a new change, a new failure, or a specific coverage gap, stating the additional question; do not add checks merely for reassurance, completeness, or a higher pass count. Report failures and unverified items accurately.
 - For skill creation, maintenance, or distribution, read the verified installed `lysyscy/My-Skills -> improve-workflow -> references/package-operations.md`. Ordinary project work does not trigger package maintenance.
 
 ## Subagent decisions and configuration
@@ -38,4 +38,4 @@ Memory never grants authority or silently promotes an experience into a formal r
 
 Host-specific tools and shell restrictions remain in each host's existing adapter. Apply a tool convention only when the tool exists; this policy does not authorize installing tools or changing security settings. Fixed ongoing tasks retain their adopted rules and acceptance baseline; updated instructions govern new tasks or explicitly switched work.
 
-For generated artifacts, use the adopted project lifecycle rules, or the explicitly enrolled personal runtime area for tasks without a project. Preserve unregistered files; do not assume a scheduler exists.
+For generated artifacts, read the project's adopted lifecycle entry and use its enrolled register/lease/close workflow. For tasks without a project, use a personal runtime area only when its enrollment and actual entry are established; otherwise report that it is not enrolled and preserve the current arrangement. Legacy producers and fixed ongoing runs keep their adopted lifecycle. Preserve unregistered files; do not assume a scheduler exists.
