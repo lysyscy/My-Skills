@@ -7,16 +7,18 @@ Apply the current user request and applicable project instructions. Read only th
 - Verify the affected behavior with the project's actual checks. Reuse evidence whose inputs and expectations still apply; report failures and unverified items accurately.
 - For skill creation, maintenance, or distribution, read the verified installed `lysyscy/My-Skills -> improve-workflow -> references/package-operations.md`. Ordinary project work does not trigger package maintenance.
 
-## Before any subagent dispatch
+## Subagent decisions and configuration
 
-This applies to every task, including research, another skill's delegation instruction, replacement agents, and new work assigned to an existing agent. First confirm delegation is authorized by the user and host. A skill's instruction cannot expand that authority.
+Decide autonomously whether to use subagents for the current task; dispatch when your judgment favors delegation, without waiting for the user to request each dispatch. Weigh task separability, context dependencies, expected quality, latency, cost, and integration overhead. Follow an execution method explicitly selected by the user, including an adopted independent-review workflow. Delegation preserves the task's existing scope and action permissions.
 
-1. Choose the model, reasoning effort, and context mode for the task's difficulty, risk, and continuity. State the basis briefly; no fixed model roles or effort presets. Keep the user's selected main-session configuration unchanged.
-2. Match the actual tool schema. With independent context, explicitly select the supported model and effort; `fork_turns="none"` is not a model choice. Use defaults only for deliberate, explained inheritance. Full-history forks inherit when required by the host; confirm that inheritance fits the task.
-3. Check the target and actual arguments before dispatch. If rules or necessary configuration are unavailable, pause only that dispatch and continue independent work. Verify returned configuration when visible; otherwise mark it unverified. Keep useful completed work when correcting a mismatch.
-4. Give the agent a clear scope, necessary context pointers, output requirements, and any write boundary. The parent owns integration and checks key results. Reuse an existing agent only if its configuration and context still fit. Do not delegate recursively by default.
+For every new or replacement subagent, and before assigning new work to an existing agent:
 
-After compaction or handoff, retain pending dispatch decisions in the existing task record and recheck current tool capabilities. This is behavioral guidance, not a claim that the host enforces argument validation.
+1. Choose the model, reasoning effort, and context mode for the subtask's difficulty, uncertainty, risk, and context needs. Briefly state the selected configuration and basis. Use a combination supported by the current host; keep the user's main-session configuration unchanged.
+2. Match the actual tool interface. When selecting independent configuration, explicitly pass both model and reasoning effort. When using inheritance, establish the inherited values and confirm they fit the task; a context-mode argument alone is not a model or effort choice. Where full-history forks require inheritance, use that mode only when the inherited configuration fits.
+3. Check the target and actual arguments before dispatch. Verify returned configuration when exposed; otherwise distinguish the requested or inherited configuration from unverified runtime configuration. Missing runtime metadata alone does not block dispatch. If a suitable configuration cannot be determined or expressed through the available interface, pause only that dispatch and continue independent work.
+4. Give the agent a clear scope, necessary context, output requirements, and write boundaries. The parent owns integration and checks key results. Reuse an existing agent only when its configuration and context still fit; apply these same decision and configuration requirements to further delegation within host limits.
+
+After compaction or handoff, retain valid pending decisions in the existing task record and recheck current tool capabilities. This is behavioral guidance, not a claim that the host enforces argument validation.
 
 ## Shared memory and responsibilities
 
