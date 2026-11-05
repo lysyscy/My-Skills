@@ -6,6 +6,18 @@
 
 当前包结构见 [architecture.md](../architecture.md)；核验实现、规则及清单的权威分别是 tools/、skills/ 和 [skill-package.json](../../skill-package.json)。本轮范围、固定版本、验证及未决项留在任务已有记录；不建立发布状态机。旧运行的 Git common dir/workflow-state/runs/ 原位保留。
 
+## 更新宿主全局规则
+
+收到更新指定宿主全局 `AGENTS.md` 的请求时，从 [共同规则](host-rules.md) 和 [宿主适配](host-adapters.md) 读取正文。修改共同规则或目标宿主段。先核对宿主实际加载的全局入口、已有本地规则和当前授权范围。
+
+从 My-Skills 根目录运行以下命令，将 UTF-8 输出保存为临时候选。将 `codex` 换成 `dsh` 可生成 DSH 的候选。
+
+```powershell
+python -X utf8 tools/host_instructions.py --common docs/agents/host-rules.md --adapters docs/agents/host-adapters.md --host codex
+```
+
+比对候选与目标宿主现有入口。发现独有规则时先核实归属，保留有效规则后重新合成。候选一致时复用现有文件。更新后读回，并用该宿主的实际加载入口确认共同规则和该宿主的适配都已生效。缺少适配或目标入口不明确时，保留现有文件并说明缺口。
+
 ## 检查、隔离与保存
 
 开发检查与隔离入口见[贡献指南](../../CONTRIBUTING.md)。结构验证器从宿主真实系统路径按[包操作](../../skills/improve-workflow/references/package-operations.md)定位；不从普通项目的工作目录猜测安装路径。
