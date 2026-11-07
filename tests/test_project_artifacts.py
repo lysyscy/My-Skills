@@ -176,6 +176,19 @@ class RuntimeDeploymentTests(unittest.TestCase):
             installer.deploy(self.project, 'b' * 40, apply=True)
         self.assertEqual(deployed.read_text(), 'unique local implementation')
 
+    def test_upgrade_adds_adapter_but_protects_unowned_adapter(self):
+        with patch.object(installer, 'SOURCES', (installer.SOURCE,)):
+            result = installer.deploy(self.project, self.revision, apply=True)
+        target = self.project / installer.RELATIVE / 'impeccable_artifacts.py'
+        target.write_text('unique', encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'not owned'):
+            installer.deploy(self.project, 'b' * 40, apply=True)
+        self.assertEqual(target.read_text(), 'unique')
+        target.unlink()  # synthetic test-only file
+        installer.deploy(self.project, 'b' * 40, apply=True)
+        self.assertEqual(target.read_bytes(), installer.SOURCE.with_name(target.name).read_bytes())
+        self.assertFalse(installer.deploy(self.project, 'b' * 40)['changed'])
+
     def test_existing_unregistered_output_is_not_adopted(self):
         output = self.project / '.artifacts/runs'
         output.mkdir(parents=True)

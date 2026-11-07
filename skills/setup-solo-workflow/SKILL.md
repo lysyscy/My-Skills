@@ -19,3 +19,5 @@ description: 为新项目接入个人工作规则，或按批准范围更新活�
 用户明确接入共享记忆时读 [记忆接入](references/memory-adoption.md)。Hindsight 保留经验、偏好和决定背景，不替代项目规则、用户授权或确定性检查。
 
 产物生命周期接入与通用工具配置见 [产物生命周期](references/artifact-lifecycle.md)；包括无项目受管运行区，接入不自动清理旧材料或安装调度。
+
+项目使用Impeccable且本次接入其过程产物时，按[Impeccable适配](references/impeccable-artifacts.md)部署并验证原生路径与登记/消费/收尾链。

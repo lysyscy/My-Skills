@@ -17,6 +17,7 @@ import sys
 import tempfile
 
 SOURCE = Path(__file__).with_name('artifact_lifecycle.py')
+SOURCES = (SOURCE, SOURCE.with_name('impeccable_artifacts.py'))
 RELATIVE = Path('tools/_vendor/setup_solo_workflow')
 
 
@@ -56,51 +57,59 @@ def deploy(project, revision, *, apply=False):
     code = module.safe(target / SOURCE.name)
     manifest_path = module.safe(target / 'deployment.json')
     output = module.safe(project / '.artifacts/runs')
-    content = SOURCE.read_bytes()
-    ast.parse(content.decode('utf-8'))
-    digest = hashlib.sha256(content).hexdigest()
+    contents = {source.name: source.read_bytes() for source in SOURCES}
+    for content in contents.values():
+        ast.parse(content.decode('utf-8'))
+    hashes = {name: hashlib.sha256(content).hexdigest() for name, content in contents.items()}
     manifest = dict(version=1, source='lysyscy/My-Skills:skills/setup-solo-workflow/scripts',
-                    revision=revision, files={SOURCE.name: digest})
+                    revision=revision, files=hashes)
     previous = None
     if manifest_path.exists():
         previous = json.loads(manifest_path.read_text(encoding='utf-8'))
         if (previous.get('version') != 1 or previous.get('source') != manifest['source'] or
-                set(previous.get('files', {})) != {SOURCE.name}):
+                not isinstance(previous.get('files'), dict) or SOURCE.name not in previous['files'] or
+                not set(previous['files']).issubset(contents)):
             raise ValueError('runtime deployment ownership is unknown')
     if target.exists():
         unknown = [p.name for p in target.iterdir()
-                   if p.name not in {SOURCE.name, 'deployment.json', '__pycache__'}]
+                   if p.name not in {*contents, 'deployment.json', '__pycache__'}]
         if unknown:
             raise ValueError('unowned runtime files: ' + ', '.join(sorted(unknown)))
         if (target / '__pycache__').exists():
             module.safe(target / '__pycache__')
-    if code.exists():
-        if previous is None:
-            raise ValueError('existing runtime is not owned by setup')
-        actual = hashlib.sha256(code.read_bytes()).hexdigest()
-        if actual not in {previous['files'][SOURCE.name], digest}:
-            raise ValueError('local runtime edits must be preserved before deployment')
-    elif previous is not None:
-        raise ValueError('owned runtime is missing; investigate before updating')
+    for name, digest in hashes.items():
+        item = module.safe(target / name)
+        owned = previous is not None and name in previous['files']
+        if item.exists():
+            if not owned:
+                raise ValueError('existing runtime is not owned by setup')
+            actual = hashlib.sha256(item.read_bytes()).hexdigest()
+            if actual not in {previous['files'][name], digest}:
+                raise ValueError('local runtime edits must be preserved before deployment')
+        elif owned:
+            raise ValueError('owned runtime is missing; investigate before updating')
     if output.exists():
         config = module.configuration(output)
         if config.get('layout') != 'runs' or not Path(config['project']).samefile(project):
             raise ValueError('project output area belongs to another configuration')
-    changed = previous != manifest or not code.exists()
+    changed = previous != manifest or any(not (target / name).exists() for name in contents)
     result = dict(status='planned', project=str(project), runtime=str(code),
                   output=str(output), revision=revision, changed=changed,
                   output_enrolled=output.exists())
     if not apply:
         return result
     target.mkdir(parents=True, exist_ok=True)
-    if not code.exists() or code.read_bytes() != content:
-        write_bytes(code, content)
+    for name, content in contents.items():
+        item = target / name
+        if not item.exists() or item.read_bytes() != content:
+            write_bytes(item, content)
     encoded = (json.dumps(manifest, ensure_ascii=False, indent=2) + '\n').encode('utf-8')
     if previous != manifest:
         write_bytes(manifest_path, encoded)
     if not output.exists():
         module.enroll(output, project=project)
-    if code.read_bytes() != content or json.loads(manifest_path.read_text(encoding='utf-8')) != manifest:
+    if (any((target / name).read_bytes() != content for name, content in contents.items()) or
+            json.loads(manifest_path.read_text(encoding='utf-8')) != manifest):
         raise RuntimeError('runtime deployment readback failed')
     module.configuration(output)
     result.update(status='deployed', output_enrolled=True)
