@@ -1,6 +1,6 @@
 # 产物生命周期与工具接入
 
-2026-10-30 用户确认的通用方法。setup 接入或维护时使用；日常任务读取已部署规则，不回读本参考。项目例外与固定旧任务保持各自基线。
+本页持有 My-Skills 采用的产物规则。日常操作直接读[本项目实际接入](#本项目实际接入)；项目例外与固定旧任务保持各自基线。
 
 
 ### 1. 先确定材料身份
@@ -80,11 +80,16 @@
 
 ## 本项目实际接入
 
-采用源 e1ab206（2026-10-30）；已确认本项目接入。当前用户的专用运行区为 `C:\Users\Administrator\AppData\Local\AgentArtifacts\projects\my-skills`，位于业务目录和云同步树之外。工具入口为 `tools/artifact_lifecycle.py`，命令使用宿主已核Python；公共实现来自已安装setup，项目不维护副本。
+新开发产物使用当前检出的 `.artifacts/runs/<组>`；`.artifacts/` 下仅新增的 `runs/` 纳入 Git 忽略规则。项目入口是 `tools/artifact_lifecycle.py`，加载 `tools/_vendor/setup_solo_workflow` 下随仓固定的运行时。采用源见该目录的 [deployment.json](../../tools/_vendor/setup_solo_workflow/deployment.json)。升级由 setup 从已验证版本部署，运行时副本不单独维护。其他新检出需要生成产物时，先由 setup 接入该检出的专用根。
 
-新任务生成可清理材料时先执行 `python -X utf8 tools/artifact_lifecycle.py register --group <安全标识> --owner <任务> --reason <用途> --kind evidence`，使用返回目录作为输出。读写消费者用 `lease -- <命令及参数>`；用途结束再 `close --group <标识> --days 30`（明确跨月为60）。未决用 `hold --group <标识> --reason <原因> --condition <解除条件>`；复查及解除由实际负责人执行。`check`只读；`sweep`实际删除符合条件材料。
+从项目根运行 `uv run python -B -X utf8 tools/artifact_lifecycle.py <动作>`：
 
-原有生产者的固定输出、系统临时API、旧 .artifacts/.scratch/validation/outputs 不自动搬迁或登记；仍沿各自消费者和旧任务规则退出。禁止用返回目录存原始业务输入或永久数据。后台配置状态以个人调度回执为准，本文接入不证明任务已安装。
+- `register --group <标识> --owner <任务> --reason <用途> --kind evidence`，使用返回目录作为输出。
+- `lease --group <标识> -- <命令及参数>`，让实际读写命令持有租约。
+- `close --group <标识> --days 30` 在用途结束后起算；明确跨月用 `60`。未决用 `hold --group <标识> --reason <原因> --condition <解除条件>`；复查及解除由实际负责人执行。
+- `check` 只读核验。`sweep` 会实际删除符合条件的材料，沿当次处置授权执行。新根未加入定时任务。
+
+旧 AppData 运行区 `C:\Users\Administrator\AppData\Local\AgentArtifacts\projects\my-skills` 保留原登记和定时任务。仍消费该根的运行继续使用已安装 setup 的 `scripts/artifact_lifecycle.py` 和显式旧 `--root`。原有生产者的固定输出、系统临时 API 和旧目录沿各自规则退出。原始输入或永久数据不写入新运行区。
 
 ## 已核实的原生产者
 

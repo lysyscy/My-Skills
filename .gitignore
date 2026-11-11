@@ -4,6 +4,9 @@ venv/
 __pycache__/
 *.py[cod]
 
+# Registered development artifacts for this checkout
+/.artifacts/runs/
+
 # Local credentials and operating system files
 .env
 .env.*

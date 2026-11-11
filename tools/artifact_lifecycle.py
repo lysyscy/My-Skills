@@ -1,9 +1,28 @@
-"""Project artifact entry; no enrollment or cleanup happens on import."""
+"""Use the fixed artifact runtime and enrolled output root of this checkout."""
+from pathlib import Path
 import subprocess
 import sys
 
+
+PROJECT = Path(__file__).resolve().parents[1]
+RUNTIME = PROJECT / 'tools/_vendor/setup_solo_workflow/artifact_lifecycle.py'
+OUTPUT = PROJECT / '.artifacts/runs'
+
+
+def main(argv):
+    if not argv:
+        raise SystemExit('action required')
+    action, *args = argv
+    own_args = args[:args.index('--')] if '--' in args else args
+    if any(arg.split('=', 1)[0] in {'--r', '--ro', '--roo', '--root'} for arg in own_args):
+        raise SystemExit('Project output root is fixed')
+    if action == 'enroll':
+        raise SystemExit('Use setup to enroll the output root for this checkout')
+    return subprocess.run(
+        [sys.executable, '-B', str(RUNTIME), action, '--root', str(OUTPUT), *args],
+        check=False,
+    ).returncode
+
+
 if __name__ == '__main__':
-    if len(sys.argv) < 2: raise SystemExit('action required')
-    own_args = sys.argv[2:sys.argv.index('--')] if '--' in sys.argv else sys.argv[2:]
-    if any(x.split('=', 1)[0] in {'--r', '--ro', '--roo', '--root'} for x in own_args): raise SystemExit('Project output root is fixed')
-    raise SystemExit(subprocess.run([sys.executable, 'C:\\Users\\Administrator\\.skills-manager\\skills\\setup-solo-workflow\\scripts\\artifact_lifecycle.py', sys.argv[1], '--root', 'C:\\Users\\Administrator\\AppData\\Local\\AgentArtifacts\\projects\\my-skills', *sys.argv[2:]], check=False).returncode)
+    raise SystemExit(main(sys.argv[1:]))
