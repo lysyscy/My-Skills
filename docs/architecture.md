@@ -8,7 +8,7 @@ skill-package.json 是授权、远端、分支、CI工作流、依赖保护及�
 
 improve-workflow/references/behavior-evaluation.md 拥有按需行为对照协议；setup-evaluation 保留接入场景、夹具与保护条件，通过同来源定位复用协议，不新增运行器或状态机。
 
-发布与安装链的唯一方法由[包操作](../skills/improve-workflow/references/package-operations.md)持有，工具只核验各阶段证据。必要记录留在当前任务，既有Git common dir/workflow-state/runs/及其执行快照保持原位。
+发布、安装核验及固定旧运行退役由[包操作](../skills/improve-workflow/references/package-operations.md)持有，工具只核验各阶段证据。必要记录留在当前任务。
 
 setup 的 documentation、document-layout 和 document-maintenance 是接入及方法维护资料，按实际职责生成项目规则；普通运行由项目 CONTRIBUTING 与专题指南持有。improve 在复盘发现具体问题时读取相应方法，不把普通项目工作重新导入接入流程。
 

@@ -1,6 +1,6 @@
 # My-Skills 资源与验证边界
 
-源码、技能资源及持久测试归原工程目录；活动 Markdown 在 .scratch/<effort>。新开发运行的日志、报告及需保留的临时副本从[本项目产物接入](artifact-lifecycle.md#本项目实际接入)进入 register，使用返回目录，读写经 lease，用途结束后 close；路径、工具与命令由该入口持有。可弃中间件使用系统临时 API，沿原生退出机制。已固定的 .git/workflow-state 旧运行保持原位。
+源码、技能资源及持久测试归原工程目录；活动 Markdown 在 .scratch/<effort>。可重建中间件用系统临时 API，结项即退出；有具名后续用途的日志、报告等从[本项目产物接入](artifact-lifecycle.md#本项目实际接入)登记。固定旧运行的接续或退役沿[项目绑定](../agents/workflow.md#规则与事实来源)。
 
 测试仅使用临时本地仓和夹具，Manager fake 不写实际中央库；需要真实发布/安装时按 package-operations 的独立授权分支执行。业务项目、真实凭据与已安装技能不是测试可写目标。隔离检出仅隔离文件变化，不自动证明访问权限隔离。
 

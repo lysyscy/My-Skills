@@ -4,7 +4,7 @@
 
 来源仓库 lysyscy/My-Skills；本仓采用来源为本仓同一Git检出中的技能与模板；项目正文是本仓实际采用版本。普通工作按本项目 CONTRIBUTING 与适用专题；宿主规则单独布置并核实际加载，模板文件存在不代表部署完成。已固定任务保持原规则、版本与授权。
 
-当前包结构见 [architecture.md](../architecture.md)；核验实现、规则及清单的权威分别是 tools/、skills/ 和 [skill-package.json](../../skill-package.json)。本轮范围、固定版本、验证及未决项留在任务已有记录；不建立发布状态机。旧运行的 Git common dir/workflow-state/runs/ 原位保留。
+当前包结构见 [architecture.md](../architecture.md)；核验实现、规则及清单的权威分别是 tools/、skills/ 和 [skill-package.json](../../skill-package.json)。本轮范围、固定版本、验证及未决项留在任务已有记录；不建立发布状态机。Git common dir 下的固定旧运行按[接续与退役规则](../../skills/improve-workflow/references/package-operations.md#失败并发与旧运行)保留或退出。
 
 ## 全局指令由 Magpie 管理
 

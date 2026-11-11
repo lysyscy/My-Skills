@@ -18,6 +18,8 @@ def main(argv):
         raise SystemExit('Project output root is fixed')
     if action == 'enroll':
         raise SystemExit('Use setup to enroll the output root for this checkout')
+    if action == 'register' and not any(arg.split('=', 1)[0] == '--kind' for arg in own_args):
+        raise SystemExit('Choose --kind work, evidence, or permanent explicitly; retain evidence for a named use')
     return subprocess.run(
         [sys.executable, '-B', str(RUNTIME), action, '--root', str(OUTPUT), *args],
         check=False,
