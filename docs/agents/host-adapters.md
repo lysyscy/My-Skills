@@ -1,6 +1,6 @@
 # Host adapters
 
-Only the selected host section is included when deploying an entry.
+Historical snapshot from the 2026-11-11 handover. Current host-specific instructions are managed in Magpie Library → Instructions; see [the active workflow](workflow.md#全局指令由-magpie-管理). This file is retained for comparison and is no longer a deployment source.
 
 <!-- host:codex -->
 ## Codex subagent configuration

@@ -6,17 +6,15 @@
 
 当前包结构见 [architecture.md](../architecture.md)；核验实现、规则及清单的权威分别是 tools/、skills/ 和 [skill-package.json](../../skill-package.json)。本轮范围、固定版本、验证及未决项留在任务已有记录；不建立发布状态机。旧运行的 Git common dir/workflow-state/runs/ 原位保留。
 
-## 更新宿主全局规则
+## 全局指令由 Magpie 管理
 
-收到更新指定宿主全局 `AGENTS.md` 的请求时，从 [共同规则](host-rules.md) 和 [宿主适配](host-adapters.md) 读取正文。修改共同规则或目标宿主段。先核对宿主实际加载的全局入口、已有本地规则和当前授权范围。
+2026-11-11 按用户要求，Codex、DSH、MiniMax Code 与 WorkBuddy 的全局指令管理和分发移交 Magpie Library → Instructions。活动指令集为 `Shared agent instructions`：共同正文关联本仓 [host-rules.md](host-rules.md)，各宿主附加正文由 Magpie 的对应 Agent 附加内容维护。共同源仍由 Git 保留版本；在 Magpie 编辑关联正文会写回该文件。
 
-从 My-Skills 根目录运行以下命令，将 UTF-8 输出保存为临时候选。将 `codex` 换成 `dsh` 可生成 DSH 的候选。
+更新时先读取 Magpie 活动集合、关联文件及目标宿主现有有效指令。共同规则可通过 Magpie 或关联源编辑；宿主差异在 Magpie 的附加内容中修改，通过 Magpie 同步。核目标文件受管段只有一份、内容与来源一致，并区分文件同步与宿主实际加载。项目自己的 AGENTS.md、技能分发与 Hindsight 的职责不变。
 
-```powershell
-python -X utf8 tools/host_instructions.py --common docs/agents/host-rules.md --adapters docs/agents/host-adapters.md --host codex
-```
+原 [host-adapters.md](host-adapters.md) 仅保留移交时的历史快照，`tools/host_instructions.py` 仅保留为旧文本的只读比较工具；二者不再生成或部署现行全局指令。未来调整规则内容仍按当前请求和维护授权进行，不从旧快照恢复覆盖 Magpie 的有效增量。
 
-比对候选与目标宿主现有入口。发现独有规则时先核实归属，保留有效规则后重新合成。候选一致时复用现有文件。更新后读回，并用该宿主的实际加载入口确认共同规则和该宿主的适配都已生效。缺少适配或目标入口不明确时，保留现有文件并说明缺口。
+首次移交已核 Codex、DSH 的有效正文与迁移前相同，保留各自适配；Codex 本次会话已重新加载受管入口。随后按用户明确要求，MiniMax 清空旧自由内容和附加内容，只采用当前共同规则；WorkBuddy 采用共同规则及两条附加偏好：Python 依赖优先沿项目既有 uv 配置，包源遵循锁文件和明确配置；会话结束不自动打开生成文件。两端自由内容已清空，WorkBuddy 其他设置保持原样。Magpie 原生备份和本次迁移证据保留恢复依据；其余客户端未扩展分发。
 
 ## 检查、隔离与保存
 

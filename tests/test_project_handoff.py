@@ -318,6 +318,48 @@ class ReminderTests(unittest.TestCase):
                         [(r.returncode, r.stdout, r.stderr) for r in results if r.returncode or r.stdout.strip()])
         self.assertEqual(self.status()["auto_count"], 12)
 
+    def test_state_replace_retries_temporary_windows_access_denial(self):
+        original_replace = os.replace
+        denied = PermissionError("temporary Windows access denial")
+        denied.winerror = 5
+        attempts = 0
+
+        def intermittent_replace(source, target):
+            nonlocal attempts
+            attempts += 1
+            if attempts <= 2:
+                raise denied
+            return original_replace(source, target)
+
+        with patch.object(m.os, "replace", side_effect=intermittent_replace):
+            self.compact()
+        self.assertGreaterEqual(attempts, 3)
+        self.assertEqual(self.status()["auto_count"], 1)
+
+    def test_persistent_windows_access_denial_preserves_existing_state(self):
+        state_path = m.state_path(self.root, self.sid)
+        self.root.mkdir(parents=True)
+        state_path.write_text(json.dumps(m.fresh_state(self.sid)), encoding="utf-8")
+        before = state_path.read_bytes()
+        denied = PermissionError("persistent Windows access denial")
+        denied.winerror = 5
+
+        with patch.object(m.os, "replace", side_effect=denied) as replace, \
+             patch.object(m.time, "sleep"):
+            with self.assertRaises(PermissionError) as raised:
+                self.compact()
+        self.assertIs(raised.exception, denied)
+        self.assertGreater(replace.call_count, 1)
+        self.assertLessEqual(replace.call_count, 6)
+        self.assertEqual(state_path.read_bytes(), before)
+
+    def test_unrelated_state_replace_failure_is_not_retried(self):
+        with patch.object(m.os, "replace", side_effect=FileNotFoundError("missing source")) as replace:
+            with self.assertRaises(FileNotFoundError):
+                self.compact()
+        self.assertEqual(replace.call_count, 1)
+        self.assertFalse(m.state_path(self.root, self.sid).exists())
+
     def test_ordinary_continue_prompt_is_not_a_response(self):
         self.delivered()
         self.turn = "turn-next"

@@ -73,6 +73,19 @@ def state_path(root, session):
     return root / (hashlib.sha256(session.encode()).hexdigest() + ".json")
 
 
+def replace_state(source, target):
+    # Windows can briefly deny a replace after the files have been closed.
+    # Keep the atomic replace and surface a persistent or unrelated failure.
+    for attempt in range(6):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError as exc:
+            if getattr(exc, "winerror", None) != 5 or attempt == 5:
+                raise
+            time.sleep(0.02 * (2 ** attempt))
+
+
 def fresh_state(session):
     return {
         "schema": 1, "session_id": session, "auto_count": 0,
@@ -516,7 +529,7 @@ def process(event, root, action="hook", response=None, reason=None, **opts):
             temp = path.with_suffix(".tmp")
             temp.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n",
                             encoding="utf-8")
-            os.replace(temp, path)
+            replace_state(temp, path)
         if action != "hook":
             return result if result is not None else state
         if name == "Stop":
