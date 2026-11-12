@@ -6,6 +6,7 @@
 
 业务技能的维护源留在各业务项目，不纳入本仓 skills 目录；分发按各项目已采用的维护协议，通过 Skills Manager 更新已登记的派生副本并保持现有授权范围。开发与跨项目方法继续沿现有管理、验证和同步流程；共享基础工具保持其原渠道。
 
+- [software-updates](skills/software-updates/SKILL.md)：检查本机软件与项目依赖，按已选范围更新，完成验收、入口迁移和残留清理。具体服务规则引用各自 README。
 - [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：接入、修复项目绑定及获批的专项文档迁移。
 - [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：显式启动或接续实施。普通任务读取项目已采用的工作规则，不必先建规格或拆票；复杂统筹按采用授权触发。
 - [setup 布置模板](skills/setup-solo-workflow/templates/README.md)：由 setup 按实际项目选用；宿主共同规则包含跨场景委派核参，模板不是日常入口。
