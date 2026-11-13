@@ -17,7 +17,7 @@ import sys
 import tempfile
 
 SOURCE = Path(__file__).with_name('artifact_lifecycle.py')
-SOURCES = (SOURCE, SOURCE.with_name('impeccable_artifacts.py'))
+SOURCES = (SOURCE, SOURCE.with_name('impeccable_artifacts.py'), SOURCE.with_name('smyw_artifacts.py'))
 RELATIVE = Path('tools/_vendor/setup_solo_workflow')
 
 

@@ -21,3 +21,5 @@ description: 为新项目接入个人工作规则，或按批准范围更新活�
 产物生命周期接入与通用工具配置见 [产物生命周期](references/artifact-lifecycle.md)；包括无项目受管运行区，接入不自动清理旧材料或安装调度。
 
 项目使用Impeccable且本次接入其过程产物时，按[Impeccable适配](references/impeccable-artifacts.md)部署并验证原生路径与登记/消费/收尾链。
+
+项目使用smyw且本次接入其过程产物时，按[smyw适配](references/smyw-artifacts.md)部署并验证登记、当前上游构建/反馈及结项链；不改外部技能或自动接管旧预览。

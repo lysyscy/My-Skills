@@ -198,6 +198,19 @@ class RuntimeDeploymentTests(unittest.TestCase):
         self.assertFalse((self.project / installer.RELATIVE).exists())
         self.assertEqual((output / 'business.txt').read_text(), 'original')
 
+    def test_upgrade_adds_smyw_adapter_without_overwriting_unowned_file(self):
+        with patch.object(installer, 'SOURCES', (installer.SOURCE, installer.SOURCE.with_name('impeccable_artifacts.py'))):
+            installer.deploy(self.project, self.revision, apply=True)
+        target = self.project / installer.RELATIVE / 'smyw_artifacts.py'
+        target.write_text('unique', encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'not owned'):
+            installer.deploy(self.project, 'b' * 40, apply=True)
+        self.assertEqual(target.read_text(encoding='utf-8'), 'unique')
+        target.unlink()
+        installer.deploy(self.project, 'b' * 40, apply=True)
+        self.assertEqual(target.read_bytes(), installer.SOURCE.with_name(target.name).read_bytes())
+        self.assertFalse(installer.deploy(self.project, 'b' * 40)['changed'])
+
 
 if __name__ == '__main__':
     unittest.main()
