@@ -60,13 +60,46 @@ class ManagerChecks(PackageFixture):
         super().setUp()
         self.fake = FakeManager(self)
 
-    def preflight(self):
+    def preflight(self, allowed_renames=None):
         with patch.object(manager, "manager_json", side_effect=self.fake):
-            return self.package.preflight("fixture", self.revision)
+            return self.package.preflight("fixture", self.revision, allowed_renames)
 
     def confirm(self, plan):
         with patch.object(manager, "manager_json", side_effect=self.fake):
             return self.package.confirm_install("fixture", self.revision, plan)
+
+    def test_renamed_skill_keeps_existing_identity_and_requires_new_name_after_update(self):
+        record = self.fake.record('first')
+        record['name'] = '旧名称'
+        with self.assertRaisesRegex(manager.PackageError, 'explicit approval'):
+            self.preflight()
+        with self.assertRaisesRegex(manager.PackageError, 'explicit approval'):
+            self.preflight({'first': '不相关的名称'})
+        plan = self.preflight({'first': '旧名称'})
+        self.assertEqual(plan['skills']['first']['id'], record['id'])
+        self.assertEqual(plan['renamed_skills']['first'], '旧名称')
+        with self.assertRaises(manager.PackageError):
+            self.confirm(plan)
+        record['name'] = 'first'
+        self.confirm(plan)
+        with self.assertRaisesRegex(manager.PackageError, 'does not match'):
+            self.preflight({'first': '旧名称'})
+
+    def test_multiple_manager_records_for_same_directory_are_refused(self):
+        duplicate = copy.deepcopy(self.fake.record('first'))
+        duplicate.update(id='other-id', name='另一名称')
+        self.fake.records.append(duplicate)
+        with self.assertRaisesRegex(manager.PackageError, 'Ambiguous.*directory'):
+            self.preflight()
+
+    def test_approved_rename_still_rejects_unknown_library_edits(self):
+        record = self.fake.record('first')
+        record['name'] = '旧名称'
+        target = self.fake.library / 'first/references/guide.md'
+        target.write_text('unique local edit', encoding='utf-8')
+        with self.assertRaisesRegex(manager.PackageError, 'edits preserved'):
+            self.preflight({'first': '旧名称'})
+        self.assertEqual(target.read_text(encoding='utf-8'), 'unique local edit')
 
     def change_source(self):
         (self.source / "skills/first/references/guide.md").unlink()

@@ -73,6 +73,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Skill structure validation failed' }
 
 记录保留技能 ID、标签、Preset 和既有部署集合。新技能未入库时预期 ID 为空且默认 library-only；已有技能通过 Manager 原位更新。新增技能使用准确的远端技能子目录入库；只有本轮明确批准新部署选择时，才在既有记录列明授权并调整该项预期，既有 ID 保持。预检记录不完整或来源/版本/技能集合不符时后验拒绝。
 
+本次明确批准技能改名时，预检可加 `--allow-rename '<旧名称>=<新名称>'`。它按同一中央目录识别旧登记，仍核来源、完整资源和历史已知版本；同目录多条登记或名称/目录冲突直接拒绝。预检结果的 `renamed_skills` 显示预期改名，安装后必须核新名称、原 ID、标签、Preset 和部署集合。未获准改名不传此参数；不能通过删除重装绕过冲突。
+
 ## 更新、定向修复与后验
 
 Agent 直接使用 `manage-skills` 的 `skills check`、`skills update` 更新受影响技能；不为本次个人包更新其他技能。检查实际退出码和 JSON，`held_back_removals`、失败或未真正更新都保留未完成项。Manager 更新会刷新既有复制部署，正常链接继续读取中央库，默认不再对所有目标重复 deploy。

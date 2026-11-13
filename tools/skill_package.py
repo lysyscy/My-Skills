@@ -247,6 +247,20 @@ class Package:
         return library, Path(repository["metadata_dir"]).resolve() / "skills", records, agents
 
     @staticmethod
+    def manager_record(records, library, name, *, allow_previous_name=False):
+        expected = (library / name).resolve()
+        matching = [record for record in records.values()
+                    if isinstance(record.get('path'), str) and Path(record['path']).resolve() == expected]
+        if len(matching) > 1:
+            raise PackageError(f"Ambiguous Manager records for directory: {name}")
+        named = records.get(name)
+        if named is not None and matching and named is not matching[0]:
+            raise PackageError(f"Manager name and directory identify different skills: {name}")
+        if named is not None:
+            return named
+        return matching[0] if allow_previous_name and matching else None
+
+    @staticmethod
     def selection(record):
         for key in ("tags", "preset_ids", "deployed_to"):
             if not isinstance(record.get(key, []), list) or any(not isinstance(value, str) for value in record.get(key, [])):
@@ -263,12 +277,13 @@ class Package:
             raise PackageError(f"Foreign managed deployment link preserved: {key}/{name}")
         return target
 
-    def preflight(self, cli, revision):
+    def preflight(self, cli, revision, allowed_renames=None):
         self.require_revision(revision)
         library, metadata_root, records, agents = self.manager_context(cli)
-        selections = {}
+        allowed_renames = allowed_renames or {}
+        selections, renamed_skills = {}, {}
         for name in self.discover():
-            record = records.get(name)
+            record = self.manager_record(records, library, name, allow_previous_name=True)
             if record is None:
                 if (library / name).exists() or linked(library / name):
                     raise PackageError(f"Unmanaged library entry preserved: {name}")
@@ -277,13 +292,19 @@ class Package:
             self.manager_source(record, library, metadata_root, name)
             if not self.known_skill_version(name, directory_fingerprint(library / name)):
                 raise PackageError(f"Unknown library edits preserved: {name}")
+            if record['name'] != name:
+                if allowed_renames.get(name) != record['name']:
+                    raise PackageError(f"Skill rename needs explicit approval: {record['name']} -> {name}")
+                renamed_skills[name] = record['name']
             selections[name] = self.selection(record)
             for key in selections[name]["deployed_to"]:
                 target = self.deployment(agents, key, name, library)
                 if (target.exists() or linked(target)) and not self.known_skill_version(name, directory_fingerprint(target)):
                     raise PackageError(f"Unknown Agent edits preserved: {key}/{name}")
+        if set(allowed_renames) != set(renamed_skills):
+            raise PackageError('Approved rename does not match the current Manager state')
         return {"status": "preflight_ok", "revision": revision, "source": str(self.root),
-                "library": str(library), "skills": selections}
+                "library": str(library), "skills": selections, "renamed_skills": renamed_skills}
 
     def confirm_install(self, cli, revision, plan):
         self.require_revision(revision)
@@ -295,7 +316,7 @@ class Package:
             raise PackageError("Update plan does not match this source, revision, library and skill set")
         deployments = {}
         for name in names:
-            record = records.get(name)
+            record = self.manager_record(records, library, name)
             self.manager_source(record, library, metadata_root, name)
             previous, current = plan["skills"][name], self.selection(record)
             if (not isinstance(previous, dict) or set(previous) != {"id", "tags", "preset_ids", "deployed_to"}
@@ -377,8 +398,17 @@ def main():
     parser.add_argument("--plan", type=Path, help="Saved preflight JSON, with any explicitly authorized new deployment choices")
     parser.add_argument("--validator", type=Path)
     parser.add_argument("--validation-python", type=Path)
+    parser.add_argument("--allow-rename", action="append", default=[], metavar="OLD=NEW")
     args = parser.parse_args()
     try:
+        if args.allow_rename and args.action != 'preflight':
+            raise PackageError('Rename approvals are only accepted for preflight')
+        renames = {}
+        for value in args.allow_rename:
+            old, separator, new = value.partition('=')
+            if not separator or not old or not new or old == new or '=' in new or new in renames:
+                raise PackageError('Use one distinct OLD=NEW value for each approved rename')
+            renames[new] = old
         package = Package(args.source)
         if args.action == "structure":
             if args.validator is None or args.validation_python is None:
@@ -392,7 +422,7 @@ def main():
             else:
                 cli = args.skills_manager_cli or skills_manager_cli()
                 if args.action == "preflight":
-                    result = package.preflight(cli, args.revision)
+                    result = package.preflight(cli, args.revision, renames)
                 else:
                     if args.plan is None:
                         raise PackageError("confirm-install needs --plan from the update preflight")
