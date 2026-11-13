@@ -56,3 +56,4 @@
 | 2026-11-10 | P1 部署 / A1 加载 | P1 已推送 `62e23a68`，生产切换到 `pypdf 7.0.1`；A1 初始化失败并回退，`7.1.11` 已实际加载。 | 7.1.12 待可安装发行包；QQ 链路受 SnowLuma 停机影响。 |
 | 2026-11-10 | 陪伴小屋 7.1.14 部署 | 官方包已安装，三组补丁原样重放，正式加载 7.1.14。 | 仪表板 200，后台并发保留 1；登录后日志与作品操作及 QQ 链路待验。 |
 | 2026-11-11 | AstrBot 依赖 / Hindsight 1.2.1 | AstrBot 35 项稳定依赖已应用，并发 3 已重载；Hindsight API 和管理页均部署 1.2.1。 | AstrBot 回执在 My feiyu 的 `var/astrbot/maintenance-backups/dependency-update-20261111/deployment.json`，Hindsight 回执在 `state/upgrade-1.2.1/cutover-verified.json`。 |
+| 2026-11-13 | 本机软件、工具链、材料工作台与 Hindsight | Argus 0.5.0、Claude Code 2.1.323、ego lite 0.6.3.12、Node 26.13.1、Obsidian 1.15.1、UU 远程 4.47.0.5146、Windows Terminal 1.25.3131.0、豆包 2.35.12、uv 0.13.8、Git 2.56.1.windows.1、独立 PowerShell 稳定版 7.7.0 均核实实装。impeccable 4.9.0 已同步原四处部署。 | 材料工作台前后端依赖已推送，后端提交 `45ef7f22`，前端 CI 实测 Node 26.13.1。正式部署状态见项目。Hindsight API 依赖切换与备份已验收，回执见其 `state/maintenance-20261113-dependencies.json`。i8 爬虫按现行范围暂停。 |

@@ -1,11 +1,11 @@
 # 本机项目与工具链
 
-材料工作台、i8 爬虫开发依赖、询价 Excel 归一化和 project-workflow 进入通用候选验证。正式启用、共享运行时和其他专项按各自规程处理。[状态与记录](status.md)保存版本快照。
+材料工作台、询价 Excel 归一化和 project-workflow 进入通用候选验证。正式启用、共享运行时和其他专项按各自规程处理。[状态与记录](status.md)保存版本快照。
 
 | 目标 | 项目位置与版本来源 | 应用和验证边界 |
 |---|---|---|
 | 材料工作台后端 | `D:\dev\mtrl-workbench\backend` 的 `pyproject.toml`、`uv.lock`、`.python-version` | 读仓根 `docs/guides/development-and-verification.md` 和 `docs/guides/deployment.md`。主检出的 `backend/.venv` 供生产服务使用。候选用另建解释器环境、可核 Git 基准及该隔离副本的登记产物区。按变更选规定的后端测试，需数据库时走专用测试库；纯工具测试只证明所覆盖的工具行为。 |
-| 材料工作台前端 | `D:\dev\mtrl-workbenchppsrontend` 的 `pnpm-lock.yaml`、`pnpm-workspace.yaml` 和 `package.json` | 核版本绑定补丁和项目的发布时间限制。按 `.github/workflows/frontend-checks.yml` 用锁定的 Corepack/pnpm 冻结安装、类型检查和单测；影响构建时按项目规程验证构建。部署与本地候选分别处理。 |
+| 材料工作台前端 | `D:\dev\mtrl-workbench\apps\frontend` 的 `pnpm-lock.yaml`、`pnpm-workspace.yaml` 和 `package.json` | 按项目当前配置核版本绑定补丁和实际选版限制。按 `.github/workflows/frontend-checks.yml` 用锁定的 Corepack/pnpm 冻结安装、类型检查和单测；影响构建时按项目规程验证构建。部署与本地候选分别处理。 |
 | i8 爬虫开发 | `D:\dev\i8-data-crawler` 的 `pyproject.toml`、`uv.lock`；Playwright 在开发组 | Playwright 候选用独立浏览器目录，按锁定包所需修订验证无头 Chromium。可用合成 HTML 和 DOM 断言做离线冒烟；实际 i8 登录探针不属于依赖验证。现有一般自检不证明 Playwright 可用。 |
 | i8 爬虫 Win7 打包 | 同仓 `打包.bat`、构建组和独立 `.buildenv`；Python 3.8 32 位与 PyInstaller 基线 | 与普通开发环境分开。锁变化波及构建组时停通用同步，按打包规程验证。 |
 | 询价 Excel 归一化 | `D:\dev\业务流程\询价\agent-skills\inquiry-assistant\workflows\inquiry-list-normalization` 的 `pyproject.toml`、`uv.lock`、`.python-version` | 读仓根 `CONTRIBUTING.md` 和 `agent-skills/evals/evaluation.md`。与 Node 主应用、部署的技能副本和旧虚拟环境分开。 |
@@ -22,6 +22,7 @@
 | 目标 | 当前范围 | 恢复条件 |
 |---|---|---|
 | AstrBot（My feiyu） | 暂停本体、全部插件（含梗百科）及其共享环境依赖的更新检测。 | 用户重新纳入后走[服务规程](services.md#astrbot-与-my-feiyu)。 |
+| i8 爬虫 | 暂停项目开发依赖（含 Playwright）和 Win7 打包依赖的更新检测与应用。 | 用户重新纳入后按上表对应的开发或打包规程验证。 |
 | CodeBuddy CLI（`@tencent-ai/codebuddy-code`） | 用户确认已卸载，退出更新检测。 | 重新安装且重新登记后纳入。 |
 
 先应用此表再查询版本、解析依赖或列候选。已排除项即使出现在旧批次、历史记录或包管理器缓存中，也按当前范围处理。

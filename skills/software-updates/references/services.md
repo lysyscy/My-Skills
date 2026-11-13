@@ -8,7 +8,7 @@
 
 从实际部署识别发行渠道。本机 API 渠道为 [hindsight-api-slim](https://pypi.org/project/hindsight-api-slim/)，管理页为 [@vectorize-io/hindsight-control-plane](https://www.npmjs.com/package/@vectorize-io/hindsight-control-plane)；[官方更新日志](https://hindsight.vectorize.io/changelog)用于判断变更影响。只有实际部署渠道存在目标版本时才列升级候选。
 
-默认分别检查 API、管理页的发行更新及当前版本依赖的兼容稳定候选。实际 Python、npm 锁和生效环境由 README 定位；区分上游精确锁与本机发布锁。升级时按 README 保护切换期间新增记忆、完成相应隔离验证与实际加载验收，迁移管理和备份入口，再处理已解除回退需要的材料。历史升级回执只作证据，不当作下一版本的操作命令。
+默认分别检查 API、管理页的发行更新及当前版本依赖的兼容稳定候选。实际 Python、npm 锁和生效环境由 README 定位。API 的独立依赖按有效约束取可用的最新稳定版本。管理页先核启动器实际加载的构建和依赖。若启动的是上游发行包内的 standalone，则其中捆绑的依赖随该发行包维护。没有更高的有效发行版且外围 npm 锁变化没有实际消费者时，归「无需更新」。升级时按 README 保护切换期间新增记忆、完成相应隔离验证与实际加载验收，迁移管理和备份入口，再处理已解除回退需要的材料。历史升级回执只作证据，不当作下一版本的操作命令。
 
 ## Hindsight 客户端集成
 
