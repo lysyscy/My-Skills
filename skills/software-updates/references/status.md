@@ -12,12 +12,11 @@
 | 材料工作台 pypdf | 主线 `62e23a68`，锁定 `7.0.1` | 生产环境实装 `7.0.1`，已切换至新服务进程 | [上游安全修复](https://github.com/py-pdf/pypdf/releases/tag/7.0.1) | 2026-11-10 · 原隔离回归 13 项通过；本次部署 `/healthz` 与 `/app/` 正常，8000 监听归属通过。报告 `.artifacts/runs/pypdf-701-check/reports/pypdf-deployment.json` |
 | 材料工作台前端 | `apps/frontend/pnpm-lock.yaml`；本地 `motion` 14.12.0；pnpm 12.18.0 | 本地 `motion` 14.12.0；生产已加载 `472fce96` | [npm 官方](https://www.npmjs.com/package/motion/v/14.12.0) | 2026-11-10 · 已提交、推送并验证生产加载 `472fce96` |
 | i8 爬虫开发 | `D:\dev\i8-data-crawler\uv.lock`；Playwright 1.65.0 | 开发 Python 3.15.2，Playwright 1.65.0 | Python.org / PyPI | 2026-11-10 · 已重建；原锁与包版本一致，隔离无头 Chromium 冒烟通过 |
-| i8 爬虫 Win7 打包 | Python 3.8 32 位；PyInstaller 5.13.2，独立 `.buildenv` | Python 3.8.10 32 位 | [官方 Windows 安装包](https://www.python.org/downloads/release/python-3810/) | 2026-11-10 · 保持 Win7 打包基线 |
+| i8 爬虫 Win7 打包 | `打包.bat` 锁定 uv 管理的 Python 3.8.20 32 位；PyInstaller 5.13.2，独立 `.buildenv` | `.buildenv` 实测 Python 3.8.20 32 位 | uv 管理的 CPython | 2026-11-13 · 已核脚本与实装，实际 Win7 运行待验 |
 | 询价 Excel 归一化 | `uv.lock`：openpyxl 3.1.5、xlrd 2.0.2、et-xmlfile 2.0.0；`.python-version`：3.15.2 | 项目本地 `uv run` 实测 3.15.2，三包与锁一致；已发布六端核验为 3.15.2 | [openpyxl 3.1.5](https://pypi.org/project/openpyxl/)、[xlrd 2.0.2](https://pypi.org/project/xlrd/)、[et-xmlfile 2.0.0](https://pypi.org/project/et-xmlfile/) | 2026-11-10 · 合成工作簿回归通过；发布包实测 3.15.2 |
 | 询价主应用 / 审批辅助 | 询价 Node ≥24；审批辅助 Python ≥3.15，未声明第三方 Python 依赖 | 审批辅助本地 Python 3.15.2 | Node.js / Python.org | 2026-11-10 · 审批环境已重建，离线技能包测试通过 |
 | Hindsight API / 管理页 | API slim 1.2.1 和管理页 1.2.1，按本机发布锁 | 生产 API、管理页实际运行 1.2.1，MCP 可用 | [1.2.1 发布说明](https://github.com/vectorize-io/hindsight/releases/tag/v1.2.1) | 2026-11-12 · 1.2.1 升级验收已通过；管理与备份入口统一，真实备份成功，旧环境及已验收升级残留已清理。当前规则见 `D:\services\hindsight\README.md`，收尾回执为 `state/maintenance-20261112.json` |
 | Hindsight 客户端集成 | 官方 npm `@vectorize-io/hindsight-coding-agents` | 已装 `0.8.7`；独立 MCP 进程核验通过 | [官方 npm 0.8.7](https://registry.npmjs.org/@vectorize-io%2fhindsight-coding-agents/0.8.7) | 2026-11-10 · 三个页面工具去掉 `knowledge_`，与已更新技能一致。工作台上下文仍提供 8 项，当前工作区保留空工具集；配置逐字节一致 |
-| AstrBot 本体 / 插件 | 本体 4.29.4、陪伴小屋 7.1.14，共享 Python 锁按本体及插件联合解析 | 实际加载，214 个包与候选锁一致，陪伴后台并发已读 3 | 35 项上游范围内稳定版依赖已更新 | 2026-11-11 · 隔离初始化及模型适配器、PDF 冒烟通过，仪表板 200。精确锁和本地附加包保留，QQ 链路待验 |
 | 技能更新 | Skills Manager 的已登记来源 | 用户更新 `hindsight-coding-agent`、`i8-purchase-plan`、`impeccable` | 三项均返回 `up_to_date` | 2026-11-10 · 已复核上述三项。此前 `unknown` 项另见[技能分支](services.md#技能更新) |
 | uv / 本机 Python | 逐项目核 `.python-version` 和有效环境 | 默认 Python 3.15.2；3.14.10 / 3.13.18 / 3.12.16；Hindsight 独立 3.12.16 | [uv](https://docs.astral.sh/uv/concepts/python-versions/) | 2026-11-10 · 已淘汰 3.15.0、3.15.1、3.14.7、3.13.7、3.12.14；微信桥独立 3.12.15 保留 |
 | Node / pnpm | 按各仓库声明；材料工作台见上 | 本机 Node 26.13.0；pnpm 实际待查 | Node.js / pnpm Releases；待查 | 2026-11-10 · 本机 Node 已核 |
@@ -25,10 +24,9 @@
 | playwright-cli | 独立安装渠道 | 本机命令可见，版本待核 | 按实际包名和渠道核对 | 2026-11-10 · 单独登记 |
 | project-workflow | `pnpm-lock.yaml`；pnpm 12.18.0；TypeScript 7.0.2、@types/node 26.6.6 | 项目实际安装版本待查 | 配置的 npm 源；待查 | 2026-11-10 · 已核声明 |
 | Git for Windows | 按实际安装渠道 | 2.56.0.windows.4 | 渠道及上游待查 | 2026-11-10 · 本机命令已核 |
-| npm | 本机 Node.js 安装 | 11.20.0 | 随对应安装渠道核对 | 2026-11-10 · 包元数据已核 |
+| npm | Node.js 随附、用户全局两个实例 | 随附 11.20.0，用户全局 12.2.2 | 随附版本跟随 Node.js，用户全局按 npm 发行渠道核对 | 2026-11-13 · 两个实例的包元数据已核 |
 | 独立 PowerShell Preview | 独立预览渠道 | 7.7.0-rc.1 | [官方 Release](https://github.com/PowerShell/PowerShell/releases/tag/v7.7.0-rc.1) | 2026-11-10 · 官方包 SHA-256 与实际启动版本已核验 |
 | WinGet / App Installer | App Installer 渠道待核 | WinGet 入口存在，App Installer 版本未核到 | 待查 | 2026-11-10 · 待确认 |
-| CodeBuddy CLI | npm 全局包 `@tencent-ai/codebuddy-code` | 2.182.0 | npm 源；上游待查 | 2026-11-10 · 包元数据已核 |
 | UniGetUI | [本机软件候选](unigetui.md) | 2026.3.3 | WinGet 会话已核 | 2026-11-10 · VLC 3.0.24、Terminal 1.25.2733.0 已验 |
 | U4 · WinGet Python 3.14 | 用户级登记 `Python.Python.3.14` 3.14.7 | uv 管理的 3.14.10 实测正常；未定位到 WinGet 记录对应的独立解释器 | WinGet 3.14.10 | 2026-11-10 · 不重复安装，登记来源待确认 |
 

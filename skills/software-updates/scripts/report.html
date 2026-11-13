@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>软件更新报告</title>
+<style>
+  :root { color-scheme:light; --paper:#f4f5f2; --white:#fff; --ink:#19251f; --muted:#4d6257; --line:#d4ded6; --accent:#14583d; --soft:#e6f2e9; --warn:#73401b; --warn-bg:#fff1de; font:16px/1.55 "Instrument Sans","Microsoft YaHei UI",sans-serif; color:var(--ink); background:var(--paper); }
+  * { box-sizing:border-box; }
+  body { margin:0; }
+  [hidden] { display:none !important; }
+  ::selection { background:#c3e8cf; color:var(--ink); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  a { color:var(--accent); text-underline-offset:.2em; }
+  header { background:var(--white); border-bottom:1px solid var(--line); }
+  .masthead, .layout { max-width:88rem; margin:auto; padding-inline:clamp(1rem,4vw,3.5rem); }
+  .masthead { padding-block:2.4rem 1.75rem; }
+  h1,h2,p { margin:0; }
+  h1 { font-size:2.25rem; letter-spacing:-.03em; line-height:1.2; }
+  h2 { font-size:1.25rem; line-height:1.4; }
+  .date { margin-top:.65rem; color:var(--muted); }
+  .counts { display:flex; flex-wrap:wrap; gap:.45rem 1.35rem; margin-top:1rem; color:var(--muted); font-size:.9rem; }
+  .counts strong { color:var(--ink); font-variant-numeric:tabular-nums; }
+  .layout { display:grid; grid-template-columns:10rem minmax(0,1fr); gap:2rem; padding-block:1.65rem 2.5rem; }
+  nav { position:sticky; top:1.25rem; align-self:start; display:grid; gap:.25rem; }
+  nav a { padding:.45rem .6rem; color:var(--muted); border-radius:.35rem; text-decoration:none; font-size:.9rem; }
+  nav a:hover { background:var(--soft); color:var(--ink); }
+  section + section, .other { margin-top:1.6rem; }
+  .group-title { display:flex; justify-content:space-between; align-items:baseline; gap:1rem; margin-bottom:.5rem; }
+  .group-title span { color:var(--muted); font-size:.85rem; white-space:nowrap; }
+  .table-wrap { overflow:auto; container-type:inline-size; background:var(--white); border:1px solid var(--line); border-radius:.6rem; }
+  table { width:100%; min-width:50rem; border-collapse:separate; border-spacing:0; text-align:left; table-layout:fixed; font-size:.88rem; }
+  th,td { padding:.7rem .65rem; border-bottom:1px solid var(--line); vertical-align:top; overflow-wrap:anywhere; }
+  thead th { background:#edf1ec; font-weight:650; color:#385145; }
+  thead th:first-child { width:4rem; }
+  th:first-child,td:first-child { padding-left:.85rem; }
+  th:nth-child(2) { width:18%; }
+  th:nth-child(3),th:nth-child(4) { width:13%; }
+  th:nth-child(6) { width:13%; }
+  tbody:last-child tr:last-child td,tbody:last-child tr:last-child th { border-bottom:0; }
+  tbody tr:first-child:hover > * { background:#f3f8f3; }
+  tbody th { font-weight:680; }
+  code,.version { font: .86rem/1.5 "IBM Plex Mono",Consolas,monospace; font-variant-numeric:tabular-nums; }
+  .version.target { color:var(--accent); font-weight:700; }
+  .badge { display:inline-block; margin-top:.2rem; padding:.08rem .4rem; background:var(--soft); border-radius:.25rem; color:#225841; font-size:.75rem; }
+  .badge.warning { background:var(--warn-bg); color:var(--warn); }
+  .detail-button { display:block; border:0; padding:.14rem 0; background:transparent; color:var(--accent); cursor:pointer; min-height:1.5rem; font:inherit; font-size:.8rem; text-decoration:underline; text-underline-offset:.18em; }
+  .detail td { background:#f7faf7; padding:.8rem 1rem 1rem; }
+  dl { display:grid; grid-template-columns:6rem minmax(0,1fr); gap:.35rem .8rem; margin:0; }
+  dt { color:var(--muted); } dd { margin:0; overflow-wrap:anywhere; }
+  .other { border-top:1px solid var(--line); padding-top:.9rem; }
+  .other ul { margin:.65rem 0 0; padding-left:1.2rem; }
+  .other li { margin:.38rem 0; }
+  .other summary { cursor:pointer; font-weight:650; }
+  .paused { display:flex; flex-wrap:wrap; align-items:baseline; gap:.3rem .8rem; }
+  .paused h2 { font-size:.85rem; }
+  .paused p { font-size:.85rem; color:var(--muted); }
+  @media (max-width:55rem) { .layout { grid-template-columns:minmax(0,1fr); gap:1.2rem; } nav { position:static; display:flex; flex-wrap:wrap; } nav a { padding:.25rem .45rem; } .masthead { padding-top:1.6rem; } }
+  @container (width < 50rem) {
+    table, tbody { display:block; min-width:0; }
+    thead { display:none; }
+    tbody + tbody { border-top:1px solid var(--line); }
+    tbody tr { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+    tbody tr > * { border:0; padding:.4rem .75rem; }
+    tbody tr > :first-child { width:auto; }
+    tbody tr > :nth-child(2) { width:auto; text-align:right; }
+    tbody tr > :nth-child(n+3)::before { content:attr(data-label); display:block; font: .75rem/1.5 "Microsoft YaHei UI",sans-serif; color:var(--muted); }
+    .detail td { grid-column:1/-1; }
+  }
+  @media (max-width:34rem) { h1 { font-size:1.85rem; } }
+</style>
+<header>
+  <div class="masthead">
+    <h1>软件更新报告</h1>
+    <p class="date" id="date"></p>
+    <div class="counts" id="counts"></div>
+  </div>
+</header>
+<div class="layout">
+  <nav id="groups" aria-label="报告分组"></nav>
+  <main id="report"></main>
+</div>
+<noscript><p>请启用 JavaScript 查看报告。</p></noscript>
+<script id="report-data" type="application/json">@@REPORT_DATA@@</script>
+<script>
+  'use strict';
+  const data = JSON.parse(document.getElementById('report-data').textContent);
+  const report = document.getElementById('report');
+  const navigation = document.getElementById('groups');
+  const allRows = data.groups.flatMap(group => group.items);
+
+  function add(parent, tag, value, className) {
+    const node = document.createElement(tag);
+    if (value) node.textContent = value;
+    if (className) node.className = className;
+    parent.append(node);
+    return node;
+  }
+
+  function renderRow(table, item) {
+    const body = add(table, 'tbody');
+    const row = add(body, 'tr');
+    add(add(row, 'td'), 'code', item.id);
+    const name = add(row, 'th', item.name);
+    name.scope = 'row';
+    if (item.security) add(add(name, 'div'), 'span', '安全更新', 'badge warning');
+    add(row, 'td', item.installed, 'version').dataset.label = '已装版本';
+    add(row, 'td', item.target, 'version target').dataset.label = '目标版本';
+    add(row, 'td', item.scope).dataset.label = '影响范围';
+    const status = add(row, 'td');
+    status.dataset.label = '状态';
+    add(status, 'span', item.status, item.ready ? 'badge' : 'badge warning');
+    const button = add(status, 'button', '详情', 'detail-button');
+    button.type = 'button';
+    button.setAttribute('aria-label', `${item.id} ${item.name} 详情`);
+    button.setAttribute('aria-expanded', 'false');
+    const detail = add(body, 'tr', '', 'detail');
+    detail.id = `detail-${item.id}`;
+    detail.hidden = true;
+    button.setAttribute('aria-controls', detail.id);
+    const cell = add(detail, 'td');
+    cell.colSpan = 6;
+    const fields = add(cell, 'dl');
+    for (const [label, value] of Object.entries(item.details)) {
+      add(fields, 'dt', label);
+      add(fields, 'dd', value);
+    }
+    if (item.source) {
+      add(fields, 'dt', '上游链接');
+      const link = add(add(fields, 'dd'), 'a', '查看来源');
+      link.href = item.source;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+    }
+    button.addEventListener('click', () => {
+      detail.hidden = !detail.hidden;
+      button.setAttribute('aria-expanded', String(!detail.hidden));
+      button.textContent = detail.hidden ? '详情' : '收起';
+    });
+  }
+
+  document.getElementById('date').textContent = data.caption;
+  const counts = document.getElementById('counts');
+  for (const [count, label] of [[allRows.filter(row => row.ready).length, '可进入更新流程'], [allRows.filter(row => row.security).length, '安全更新'], [allRows.filter(row => !row.ready).length + data.pending.length, '待确认'], [data.current.length, '无更新记录']]) {
+    const part = add(counts, 'span');
+    add(part, 'strong', String(count));
+    part.append(` ${label}`);
+  }
+
+  if (!allRows.length) add(report, 'p', '本批没有更新候选。');
+  data.groups.forEach((group, index) => {
+    const anchor = `group-${index}`;
+    add(navigation, 'a', group.name).href = `#${anchor}`;
+    const section = add(report, 'section');
+    section.id = anchor;
+    const title = add(section, 'div', '', 'group-title');
+    add(title, 'h2', group.name).id = `${anchor}-title`;
+    add(title, 'span', `${group.items.length} 项`);
+    const wrapper = add(section, 'div', '', 'table-wrap');
+    wrapper.tabIndex = 0;
+    wrapper.setAttribute('role', 'region');
+    wrapper.setAttribute('aria-labelledby', `${anchor}-title`);
+    const table = add(wrapper, 'table');
+    table.setAttribute('role', 'table');
+    const heading = add(add(table, 'thead'), 'tr');
+    for (const label of ['编号', '组件', '已装版本', '目标版本', '影响范围', '状态']) add(heading, 'th', label).scope = 'col';
+    group.items.forEach(item => renderRow(table, item));
+  });
+
+  for (const [id, title, list, collapsed] of [['pending', '待确认与未完成检查', data.pending, false], ['current', '确认无更新', data.current, true]]) {
+    if (!list.length) continue;
+    add(navigation, 'a', title).href = `#${id}`;
+    const block = add(report, collapsed ? 'details' : 'section', '', 'other');
+    block.id = id;
+    add(block, collapsed ? 'summary' : 'h2', `${title} · ${list.length} 项`);
+    const entries = add(block, 'ul');
+    list.forEach(value => add(entries, 'li', value));
+  }
+
+  if (data.paused.length) {
+    const paused = add(report, 'aside', '', 'other paused');
+    paused.setAttribute('aria-labelledby', 'paused-heading');
+    add(paused, 'h2', '暂停更新').id = 'paused-heading';
+    add(paused, 'p', data.paused.join('；'));
+  }
+</script>
+</html>
