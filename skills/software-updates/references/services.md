@@ -14,6 +14,8 @@
 
 从已接入 harness 的实际配置定位集成入口和包版本，核 [@vectorize-io/hindsight-coding-agents](https://www.npmjs.com/package/@vectorize-io/hindsight-coding-agents) 及[集成更新日志](https://hindsight.vectorize.io/changelog/integrations/coding-agents)。服务 API、客户端集成和受管 `hindsight-coding-agent` 技能分别登记。
 
+DSH 客户端的本地补丁由实际 profile 的 `patches` 目录维护；本机入口为 `C:\Users\Administrator\.dsh\profiles\desktop\patches\hindsight-coding-agents-0.8.7\README.md`。检查客户端新版或 DS Bot 输入格式变化时，先读该入口，对照目标发行源码逐项判断保留、适配、缩减或删除，并记录回归与加载证据；未完成兼容性判断时暂缓该客户端升级。精确版本补丁不会自动适用于新版，不能只凭 issue 关闭或补丁能应用判定已修复。具体补丁、哈希和当前加载状态由该入口持有。
+
 获授权时沿官方运行时更新入口应用精确版本，在现有接入范围内核实际宿主参数、项目目录、工具输入和分库结果。按当前配置处理停用项目和默认工作区，不以更新为由接入新的 harness。工具接口变化时核实际调用者；缓存刷新或重启按宿主规程与当次授权执行。回退材料按收尾条件释放。
 
 ## AstrBot 与 My feiyu
