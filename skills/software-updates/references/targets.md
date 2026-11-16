@@ -11,7 +11,7 @@
 | 询价 Excel 归一化 | `D:\dev\业务流程\询价\agent-skills\inquiry-assistant\workflows\inquiry-list-normalization` 的 `pyproject.toml`、`uv.lock`、`.python-version` | 读仓根 `CONTRIBUTING.md` 和 `agent-skills/evals/evaluation.md`。与 Node 主应用、部署的技能副本和旧虚拟环境分开。 |
 | 询价主应用 / 审批辅助 | `D:\dev\业务流程\询价\package.json`；`D:\dev\业务流程\审批辅助\pyproject.toml` 和 `uv.lock` | 首版登记运行时。询价主应用无 npm 依赖，审批辅助尚未声明第三方 Python 依赖；每次以项目现状为准。 |
 | project-workflow | `D:\dev\project-workflow` 的 `package.json`、`pnpm-lock.yaml` 和 `pnpm-workspace.yaml` | 按 `CONTRIBUTING.md` 在隔离目录冻结安装并执行 `pnpm check`。TypeScript 和 `@types/node` 由锁管理。台账测试临时使用的 `openpyxl` 单独核查，影响该路径时用合成工作簿执行 `pnpm test:ledger-workbook`。 |
-| My-Skills 开发环境 | `D:\dev\My-Skills` 的 `pyproject.toml`、`uv.lock` 和 `.python-version` | 核对仓库的实际 Python 和依赖；运行时迁移按仓库 `CONTRIBUTING.md` 验证。技能分发走已登记的发布规程。 |
+| My-Skills 开发环境 | `D:\dev\tooling\My-Skills` 的 `pyproject.toml`、`uv.lock` 和 `.python-version` | 核对仓库的实际 Python 和依赖；运行时迁移按仓库 `CONTRIBUTING.md` 验证。技能分发走已登记的发布规程。 |
 
 持久开发应用目标需按项目明确登记路径和消费者。目前材料工作台后端及询价 Excel 归一化没有已核实的独立持久目标，默认停在候选验证。隔离候选和演练目录仅供验证；主检出的声明、锁文件及环境都应核实与生产或已部署技能的关系后再写入。
 

@@ -1,6 +1,6 @@
 # 状态与记录
 
-维护位置为 `D:\dev\My-Skills\skills\software-updates\references\status.md`；安装副本只读。各行是带日期的更新证据，具体服务现状与规则以其 README 为准。
+维护位置为 `D:\dev\tooling\My-Skills\skills\software-updates\references\status.md`；安装副本只读。各行是带日期的更新证据，具体服务现状与规则以其 README 为准。
 
 ## 当前状态
 
