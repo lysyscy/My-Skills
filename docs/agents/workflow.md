@@ -8,7 +8,7 @@
 
 ## 全局指令由 Magpie 管理
 
-2026-11-11 按用户要求，Codex、DSH、MiniMax Code 与 WorkBuddy 的全局指令管理和分发移交 Magpie Library → Instructions。活动指令集为 `Shared agent instructions`：共同正文关联本仓 [host-rules.md](host-rules.md)，各宿主附加正文由 Magpie 的对应 Agent 附加内容维护。共同源仍由 Git 保留版本；在 Magpie 编辑关联正文会写回该文件。
+2026-11-11 按用户要求，Codex、DSH、MiniMax Code 与 WorkBuddy 的全局指令管理和分发移交 Magpie Library → Instructions。在标为「使用中」的 `Shared agent instructions · tooling` 集合中维护共同指令，确认它关联本仓的 [host-rules.md](host-rules.md)。各宿主附加正文在 Magpie 的对应 Agent 附加内容中维护。共同源由 Git 保留版本；在 Magpie 编辑关联正文会写回该文件。
 
 更新时先读取 Magpie 活动集合、关联文件及目标宿主现有有效指令。共同规则可通过 Magpie 或关联源编辑；宿主差异在 Magpie 的附加内容中修改，通过 Magpie 同步。核目标文件受管段只有一份、内容与来源一致，并区分文件同步与宿主实际加载。项目自己的 AGENTS.md、技能分发与 Hindsight 的职责不变。
 
