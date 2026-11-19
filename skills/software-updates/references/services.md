@@ -16,6 +16,8 @@
 
 DSH 客户端的本地补丁维护源位于 workstation，本机入口为 `D:\dev\tooling\workstation\dsh\patches\hindsight-coding-agents\0.8.7\README.md`；实际 profile 的 `patches` 目录保留运行部署副本。检查客户端新版或 DS Bot 输入格式变化时，先读该入口，对照目标发行源码逐项判断保留、适配、缩减或删除，并记录回归与加载证据；未完成兼容性判断时暂缓该客户端升级。精确版本补丁不会自动适用于新版，不能只凭 issue 关闭或补丁能应用判定已修复。具体补丁、哈希和当前加载状态由该入口持有。
 
+T3 Antigravity 的 Hindsight 包装脚本维护入口位于 workstation 的 `D:\dev\tooling\workstation\docs\t3-antigravity-hindsight-wrapper.md`。升级或重装 `@vectorize-io/hindsight-coding-agents`，或 T3 Antigravity 未触发 Hindsight 时，先读该入口，核对 `hooks.json` 接线，并对照目标发行源码确认 `antigravityCwd` 能否匹配多个工作区，据此决定保留或退役。
+
 获授权时沿官方运行时更新入口应用精确版本，在现有接入范围内核实际宿主参数、项目目录、工具输入和分库结果。按当前配置处理停用项目和默认工作区，不以更新为由接入新的 harness。工具接口变化时核实际调用者；缓存刷新或重启按宿主规程与当次授权执行。回退材料按收尾条件释放。
 
 ## AstrBot 与 My feiyu
