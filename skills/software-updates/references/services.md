@@ -14,11 +14,12 @@
 
 从已接入 harness 的实际配置定位集成入口和包版本，核 [@vectorize-io/hindsight-coding-agents](https://www.npmjs.com/package/@vectorize-io/hindsight-coding-agents) 及[集成更新日志](https://hindsight.vectorize.io/changelog/integrations/coding-agents)。服务 API、客户端集成和受管 `hindsight-coding-agent` 技能分别登记。
 
-DSH 客户端的本地补丁维护源位于 workstation，本机入口为 `D:\dev\tooling\workstation\dsh\patches\hindsight-coding-agents\0.8.7\README.md`；实际 profile 的 `patches` 目录保留运行部署副本。检查客户端新版或 DS Bot 输入格式变化时，先读该入口，对照目标发行源码逐项判断保留、适配、缩减或删除，并记录回归与加载证据；未完成兼容性判断时暂缓该客户端升级。精确版本补丁不会自动适用于新版，不能只凭 issue 关闭或补丁能应用判定已修复。具体补丁、哈希和当前加载状态由该入口持有。
+本机有两处独立磁盘安装，分别检查版本及候选、按各自入口应用更新，并逐宿主核验加载。
 
-T3 Antigravity 的 Hindsight 包装脚本维护入口位于 workstation 的 `D:\dev\tooling\workstation\docs\t3-antigravity-hindsight-wrapper.md`。升级或重装 `@vectorize-io/hindsight-coding-agents`，或 T3 Antigravity 未触发 Hindsight 时，先读该入口，核对 `hooks.json` 接线，并对照目标发行源码确认 `antigravityCwd` 能否匹配多个工作区，据此决定保留或退役。
+- **DSH desktop profile** 安装在 `C:\Users\Administrator\.dsh\profiles\desktop\node_modules\@vectorize-io\hindsight-coding-agents`，由 profile 的 pnpm 和本地精确版本补丁维护，profile 的 `patches` 保留部署副本。查新版或 DS Bot 输入格式变化时，从 `D:\dev\tooling\workstation\dsh\README.md` 导航至 `patches\hindsight-coding-agents\<版本>\README.md`，按当前版本定位补丁，对照目标发行源码决定保留、适配、缩减或退役。补丁兼容性确认后再升级，分别记录回归和加载证据。
+- **Codex / Antigravity 共用 staged 实例** 安装在 `C:\Users\Administrator\.hindsight\coding-agents`，经官方 `update` 应用精确版本，可独立于 DSH 升级。升级、重装后或 T3 Antigravity 未触发 Hindsight 时，按 `D:\dev\tooling\workstation\docs\t3-antigravity-hindsight-wrapper.md` 核对 `hooks.json` 的包装脚本接线，确认目标发行版的 `antigravityCwd` 能否匹配多个工作区，据此决定保留或退役。
 
-获授权时沿官方运行时更新入口应用精确版本，在现有接入范围内核实际宿主参数、项目目录、工具输入和分库结果。按当前配置处理停用项目和默认工作区，不以更新为由接入新的 harness。工具接口变化时核实际调用者；缓存刷新或重启按宿主规程与当次授权执行。回退材料按收尾条件释放。
+获授权更新后，在现有接入范围内核实际宿主参数、项目目录、工具输入和分库结果。按当前配置处理停用项目和默认工作区，不以更新为由接入新的 harness。工具接口变化时核实际调用者；缓存刷新或重启按宿主规程与当次授权执行。回退材料按收尾条件释放。
 
 ## AstrBot 与 My feiyu
 
@@ -36,4 +37,4 @@ T3 Antigravity 的 Hindsight 包装脚本维护入口位于 workstation 的 `D:\
 
 通过本机安装的 `manage-skills` 查询登记、来源和部署。自有技能按已安装 `improve-workflow/references/package-operations.md` 选择唯一维护源；上游版本、库内独有改动和已部署内容分别核对。
 
-检查、更新和分发沿当次授权。保留既有身份、来源和部署选择；更新检测为 `unknown` 时，在报告「待确认」中逐项写技能名称和「未能判断是否有更新」。查询结果提供具体原因时一并注明。具体 My-Skills 发布与备份规则由包维护规范持有。
+检查、更新和分发沿当次授权。保留既有身份、来源和部署选择；更新检测为 `unknown` 时，在相应技能的「组件新版检查」写明「未能判断是否有更新」及已知原因。具体 My-Skills 发布与备份规则由包维护规范持有。

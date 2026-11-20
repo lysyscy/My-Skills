@@ -1,6 +1,6 @@
 # UniGetUI 软件更新
 
-本机安装位置为 `D:\software\UniGetUI`。使用同目录的 `uniget.exe`，命令以[已安装版本的官方 CLI 文档](https://github.com/Devolutions/UniGetUI/blob/v2026.3.3/docs/CLI.md)和本机帮助为准。
+本机安装位置为 `D:\software\UniGetUI`。使用同目录的 `uniget.exe`，命令以本机帮助为准，可参照[官方 CLI 文档（2026.3.3）](https://github.com/Devolutions/UniGetUI/blob/v2026.3.3/docs/CLI.md)。
 
 ## 检查
 
@@ -11,10 +11,12 @@
 ## 逐项更新
 
 1. 对本批范围内的每个包，提交更新前读取 `package ignored list`，按管理器、包 ID 和版本匹配当前忽略规则，命中则跳过。随后核对包身份、安装来源、范围、当前版本、目标版本及是否已有更新在执行。目标发生变化、管理器无法锁定目标版本，或需要改来源、关闭在用程序、提权、重启时，将该项留给用户决定，继续处理其他独立项。更新 UniGetUI 或本批依赖的管理器时单列，避免中断正在执行的批次。
-2. 对符合条件的每个包调用 `package update`，传入已核实的 `--id`、`--manager`、`--version` 及后端支持的 `--source`、`--scope`。先确认本机版本会将目标版本传给实际后端；任务日志显示参数丢失时，暂停同类自动更新，待确认可靠的定版入口。可用 `--wait false` 取得操作 ID，再用 `operation wait --id <操作ID> --timeout <秒>` 查到终态。交互安装交给用户时，明确具体软件，其他项目继续处理。
+2. 对确认可经 UniGetUI 定版的包调用 `package update`，传入已核实的 `--id`、`--manager`、`--version` 及后端支持的 `--source`、`--scope`。先确认本机版本会将目标版本传给实际后端；任务日志显示参数丢失时，暂停同类自动更新，待确认可靠的定版入口。可用 `--wait false` 取得操作 ID，再用 `operation wait --id <操作ID> --timeout <秒>` 查到终态。交互安装交给用户时，明确具体软件，其他项目继续处理。
+
+   本机 UniGetUI `2026.3.4` 实测会丢弃 WinGet 更新的 `--version`。复测确认它能传递目标版本前，WinGet 候选走定版原生命令 `winget upgrade --id <ID> --exact --source winget --version <目标版本> --scope <user|machine>`。涉及在用程序或机器范围提权时，将定版命令交用户执行。
 3. 分别查最终操作状态和实际安装版本。以同一安装实例的实测版本判断实际变更；操作失败或提示与实测不符时单独记录差异和原因。排队、超时、失败、待重启或版本未核实分别记录。等待超时时先查原操作，避免重复入队。按[更新收尾](completion.md)处理本次受影响入口及残留；由包管理器负责的卸载或清理沿其官方入口，不手动删除未知安装目录。按[状态与记录](status.md)回写选定批次。
 
 ## 归属
 
-- Codex 附带的 CLI 和 PowerShell 由桌面宿主管理。独立版 Codex CLI 已卸载，重新登记后才纳入检查。独立 PowerShell Preview 按自身预览渠道核对。Skills Manager 本体由用户手动更新，受管技能走[技能规程](services.md#技能更新)。
+- Codex 附带的 CLI 和 PowerShell 由桌面宿主管理。为 T3 Code 重新安装的独立 npm 包 `@openai/codex` 已恢复更新检查，分别核对其版本、Codex 桌面附带的 CLI 及 `CODEX_CLI_PATH` 实际指向。独立 PowerShell Preview 按自身预览渠道核对。Skills Manager 本体由用户手动更新，受管技能走[技能规程](services.md#受管技能)。
 - UniGetUI 的 npm、pip 等候选只代表各自已识别的安装实例。项目锁文件、服务 `.venv` 和浏览器共享缓存仍走各自规程。
