@@ -12,6 +12,7 @@
 | 询价主应用 / 审批辅助 | `D:\dev\业务流程\询价\package.json`；`D:\dev\业务流程\审批辅助\pyproject.toml` 和 `uv.lock` | 首版登记运行时。询价主应用无 npm 依赖，审批辅助尚未声明第三方 Python 依赖；每次以项目现状为准。 |
 | project-workflow | `D:\dev\project-workflow` 的 `package.json`、`pnpm-lock.yaml` 和 `pnpm-workspace.yaml` | 按 `CONTRIBUTING.md` 在隔离目录冻结安装并执行 `pnpm check`。TypeScript 和 `@types/node` 由锁管理。台账测试临时使用的 `openpyxl` 单独核查，影响该路径时用合成工作簿执行 `pnpm test:ledger-workbook`。 |
 | My-Skills 开发环境 | `D:\dev\tooling\My-Skills` 的 `pyproject.toml`、`uv.lock` 和 `.python-version` | 核对仓库的实际 Python 和依赖；运行时迁移按仓库 `CONTRIBUTING.md` 验证。技能分发走已登记的发布规程。 |
+| Antigravity-Hans | `D:\dev\tooling\Antigravity-Hans`，上游 [yuexps/Antigravity-Hans](https://github.com/yuexps/Antigravity-Hans) | 检查 Windows 在用汉化启动器、实际 Antigravity 宿主和上游正式版。应用走 [Antigravity-Hans 专项](#antigravity-hans)。 |
 
 持久开发应用目标需按项目明确登记路径和消费者。目前材料工作台后端及询价 Excel 归一化没有已核实的独立持久目标，默认停在候选验证。隔离候选和演练目录仅供验证；主检出的声明、锁文件及环境都应核实与生产或已部署技能的关系后再写入。
 
@@ -31,6 +32,12 @@
 
 - `openpyxl` 或影响它的变更：用候选解释器运行仓库布局的隔离副本中的 `agent-skills/evals/test_blank_template.py`，核对合成工作簿的表头、公式、格式及源文件防覆盖。
 - `xlrd` 或影响它的变更：用合成 BIFF `.xls` 走流程的 `scripts/inspect_structure.py` 实际读取。空白模板测试不覆盖这一路；缺合适验证时停该项。
+
+## Antigravity-Hans
+
+- **组件新版**。读取在用汉化进程的可执行文件路径、启动模式和 SHA-256。用上游 [Releases](https://github.com/yuexps/Antigravity-Hans/releases) 的同平台资产摘要或可追溯构建证据确认实装版本。分别记录本地源码 `VERSION`、Git 提交与工作区改动、上游稳定版及标签提交。对比实装发行版和本地源码与候选的差异，尤其是本机启动脚本依赖的参数。
+- **宿主与依赖**。按实际入口核对 Antigravity App 或 IDE 的运行版本、候选 README 声明的适配范围与实际汉化覆盖证据。官方 Windows x64 启动器的 Go 模块随二进制更新。仅对实际参与本地构建的消费者，再核 `go.mod`、`go.sum`、Go 工具链和可独立更新的构建依赖。
+- **验证与应用**。先在独立路径校验候选资产摘要，核对当前入口的启动、附加、断开及重连行为，并在对应宿主中检查中英切换和相关页面。实际替换、重建快捷方式、停止监视器或改动应用安装资源按本批授权执行。保留本机脚本与自定义词库，按实际使用的模式单独验收。验收记录包含最终进程路径、实装哈希和实际汉化结果。
 
 ## 工具链
 
