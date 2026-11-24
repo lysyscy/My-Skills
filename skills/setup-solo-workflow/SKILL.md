@@ -1,6 +1,7 @@
 ---
 name: setup-solo-workflow
 description: 为新项目接入个人工作规则，或按批准范围更新活动项目的规则部署；不用于普通开发时查阅执行方法。
+disable-model-invocation: true
 ---
 
 # 接入与更新项目规则

@@ -42,24 +42,9 @@ My Skills 用 Git 编辑、验证和发布源；官方 Skills Manager 管理中�
 
 普通实施和收尾按维护项目已采用的 CONTRIBUTING；只加载本次受影响的技能与参考。纯文档检查语义、结构、引用与实际消费者；指令行为变更覆盖原问题、最近相关旧行为和失败分支。工具、测试、清单或共享契约变化执行清单中的相关回归及必要全套检查。按需行为实验见 [behavior-evaluation.md](behavior-evaluation.md)，不把实验设为每轮发布条件。
 
-结构检查使用宿主真实系统 `skill-creator/scripts/quick_validate.py` 和已有可用解释器，不用中央库同名技能替代。调用 `uv run python tools/skill_package.py structure --source '<候选源>' --validator '<实际验证器>' --validation-python '<可 import yaml 的解释器>'`。工具先探测依赖，再逐技能执行验证器，区分 `environment_blocked` 和 `validation_failed`，返回非零；摘要截断时按需补读原始失败。结构通过不证明行为正确。structure 会执行外部验证器，其副作用须按实际工具核实，严格只读观察只用预检及后验的查询和文件比对。
+结构检查运行 `uv run python tools/skill_package.py structure --source '<候选源>'`。内置跨宿主验证器使用 Python 标准库，逐技能检查 Agent Skills 核心字段、跨宿主调用扩展、正文代码围栏和可选的 `agents/openai.yaml`。推送和 PR 的单测也会检查实际技能目录。行为变更按相关场景另行取证。
 
-已有解释器能import yaml时直接使用；缺依赖且允许临时准备时，在同一次uv进程内用PyYAML运行结构检查，避免把临时解释器路径带到进程结束后。以下PowerShell 7配方从已确认的包源根运行；替换已定位的真实验证器路径，不向业务环境安装依赖：
-
-```powershell
-@'
-import runpy
-import sys
-from pathlib import Path
-
-source = Path.cwd()
-validator = Path(r"<实际验证器绝对路径>")
-sys.argv = ["tools/skill_package.py", "structure", "--source", str(source),
-            "--validator", str(validator), "--validation-python", sys.executable]
-runpy.run_path("tools/skill_package.py", run_name="__main__")
-'@ | uv run --with PyYAML python -X utf8 -
-if ($LASTEXITCODE -ne 0) { throw 'Skill structure validation failed' }
-```
+需要指定外部验证器时加 `--validator '<验证器>' --validation-python '<可 import yaml 的解释器>'`。工具先探测 PyYAML，再逐技能调用指定验证器，区分 `environment_blocked` 和 `validation_failed`。执行外部验证器前核实其副作用。
 
 由 Agent 按当前授权显式暂存本轮文件、提交、整合及正常推送；不强推或跳过钩子。整合改变验证输入时重验受影响部分。不确定推送是否成功时先查询远端包含关系，失败保留分支和日志。仅授权候选时在本地验证与保存后停止，不调用更新或部署。
 

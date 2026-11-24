@@ -19,8 +19,260 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 
+FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---(?:\r?\n|$)", re.S)
+SKILL_FIELDS = {
+    "name", "description", "license", "allowed-tools", "metadata", "compatibility",
+    "disable-model-invocation", "user-invocable", "argument-hint",
+}
+QUOTED = r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^']|'')*')"""
+MAPPING_ENTRY = re.compile(rf"({QUOTED}|[^\s'\"#][^:#]*?)\s*:(?:[ \t]+(.*)|$)")
+SEQUENCE_ENTRY = re.compile(r"-(?:[ \t]+(.*)|$)")
+BLOCK_SCALAR = re.compile(r"([|>])([+-][1-9]?|[1-9][+-]?)?")
+FENCE = re.compile(r"^[ \t]*(?:(?:[-+*]|\d+[.)])[ \t]+)?(`{3,}|~{3,})(.*)$")
+YAML_ESCAPES = {
+    "0": "\0", "a": "\a", "b": "\b", "t": "\t", "\t": "\t", "n": "\n", "v": "\v",
+    "f": "\f", "r": "\r", "e": "\x1b", " ": " ", '"': '"', "/": "/", "\\": "\\",
+    "N": "\x85", "_": "\xa0", "L": "\u2028", "P": "\u2029",
+}
+
+
 class PackageError(RuntimeError):
     pass
+
+
+def yaml_scalar(value):
+    if value.startswith(("'", '"')):
+        match = re.fullmatch(rf"({QUOTED})(?:[ \t]+#.*)?", value)
+        if not match:
+            raise ValueError("malformed quoted scalar")
+        quoted = match[1]
+        if quoted.startswith("'"):
+            return quoted[1:-1].replace("''", "'")
+
+        def unescape(escape):
+            character = escape[1]
+            if character[0] in "xuU" and len(character) > 1:
+                codepoint = int(character[1:], 16)
+                if 0xD800 <= codepoint <= 0xDFFF:
+                    raise ValueError("quoted scalar contains an invalid Unicode escape")
+                return chr(codepoint)
+            if character in YAML_ESCAPES:
+                return YAML_ESCAPES[character]
+            raise ValueError(f"invalid escape in quoted scalar: {escape[0]}")
+
+        return re.sub(r"\\(x[\da-fA-F]{2}|u[\da-fA-F]{4}|U[\da-fA-F]{8}|.)", unescape, quoted[1:-1])
+    if value in {"true", "false"}:
+        return value == "true"
+    if value in {"True", "TRUE", "False", "FALSE"}:
+        raise ValueError("use lowercase true or false for booleans")
+    if value in {"", "null", "Null", "NULL", "~"}:
+        return None
+    if value == "{}":
+        return {}
+    if value == "[]":
+        return []
+    if re.fullmatch(r"0o[0-7]+|0x[0-9a-fA-F]+", value):
+        return int(value, 0)
+    if re.fullmatch(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?", value):
+        return float(value)
+    if re.fullmatch(r"[+-]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN)", value):
+        return float(value.replace(".", ""))
+    if value[0] in "&*![]{}|>@`%," or re.search(r":(?:[ \t]|$)|^[-?:](?:[ \t]|$)", value):
+        raise ValueError("unsupported or malformed plain scalar")
+    return value
+
+
+def read_yaml_mapping(source, filename, first_line=1):
+    """Read the block YAML used by skill metadata, without tags, aliases or implicit merges."""
+    lines = source.removesuffix("\n").split("\n")
+    index = 0
+
+    def fail(row, message):
+        raise ValueError(f"{filename}:{first_line + row}: {message}")
+
+    def peek():
+        nonlocal index
+        while index < len(lines):
+            line = lines[index].lstrip(" ")
+            if line.strip() and not line.lstrip(" \t").startswith("#"):
+                if line.startswith("\t"):
+                    fail(index, "use spaces for YAML indentation")
+                return len(lines[index]) - len(line), line.rstrip(" \t")
+            index += 1
+        return -1, ""
+
+    def block(indent, style, explicit_indent, chomp):
+        nonlocal index
+        padding = indent + int(explicit_indent) if explicit_indent else None
+        content = []
+        while index < len(lines):
+            line = lines[index]
+            spaces = len(line) - len(line.lstrip(" "))
+            if line.strip():
+                if spaces <= indent:
+                    break
+                if padding is None:
+                    padding = spaces
+                if spaces < padding:
+                    fail(index, "inconsistent block scalar indentation")
+            content.append(line[padding:] if padding is not None else "")
+            index += 1
+
+        text = "\n".join(content)
+        if style == ">" and content:
+            parts = [content[0]]
+            previous_nonblank = content[0]
+            for before, after in zip(content, content[1:]):
+                separator = "\n"
+                if (previous_nonblank and after
+                        and not previous_nonblank.startswith((" ", "\t"))
+                        and not after.startswith((" ", "\t"))):
+                    separator = " " if before else ""
+                parts.extend((separator, after))
+                if after:
+                    previous_nonblank = after
+            text = "".join(parts)
+        if content and (index < len(lines) or source.endswith("\n")):
+            text += "\n"
+        if chomp == "+":
+            return text
+        trimmed = text.rstrip("\n")
+        if chomp != "-" and trimmed and text.endswith("\n"):
+            return trimmed + "\n"
+        return trimmed
+
+    def scalar(text, row):
+        try:
+            return yaml_scalar(text)
+        except ValueError as error:
+            fail(row, str(error))
+
+    def value(text, indent, row):
+        # A '#' inside a quoted scalar is data. A plain comment requires separation.
+        text = (text or "").strip(" \t")
+        if not text.startswith(("'", '"')):
+            text = re.split(r"(?:^|[ \t]+)#", text, maxsplit=1)[0].rstrip(" \t")
+        if match := BLOCK_SCALAR.fullmatch(text):
+            style, suffix = match[1], match[2] or ""
+            return block(indent, style, suffix.strip("+-"), suffix.strip("123456789"))
+        if text:
+            return scalar(text, row)
+        child_indent, child = peek()
+        if child_indent > indent:
+            if SEQUENCE_ENTRY.fullmatch(child):
+                return sequence(child_indent)
+            return mapping(child_indent)
+        return None
+
+    def mapping(indent, first=None):
+        nonlocal index
+        data = {}
+        while True:
+            if first is None:
+                column, line = peek()
+                if column < indent:
+                    return data
+                if column != indent:
+                    fail(index, "inconsistent mapping indentation")
+                row = index
+                index += 1
+            else:
+                line, row = first
+                first = None
+            match = MAPPING_ENTRY.fullmatch(line)
+            if not match:
+                fail(row, "expected a YAML mapping entry ('key: value')")
+            key = scalar(match[1], row)
+            if not isinstance(key, str) or not key or key in data or key == "<<":
+                fail(row, f"invalid or duplicate mapping key: {match[1]}")
+            data[key] = value(match[2], indent, row)
+
+    def sequence(indent):
+        nonlocal index
+        data = []
+        while True:
+            column, line = peek()
+            if column < indent:
+                return data
+            match = SEQUENCE_ENTRY.fullmatch(line)
+            if column != indent or not match:
+                fail(index, "expected a YAML sequence entry ('- value')")
+            row = index
+            index += 1
+            item = match[1] or ""
+            if MAPPING_ENTRY.fullmatch(item):
+                data.append(mapping(indent + match.start(1), first=(item, row)))
+            else:
+                data.append(value(item, indent, row))
+
+    for row, line in enumerate(lines):
+        if re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x84\x86-\x9f\ufffe\uffff]", line):
+            fail(row, "invalid YAML control character")
+    data = mapping(0)
+    if not data:
+        fail(0, "expected a YAML mapping")
+    return data
+
+
+def read_structure_text(path):
+    try:
+        return path.read_text(encoding="utf-8", newline="").replace("\r\n", "\n")
+    except UnicodeDecodeError as error:
+        raise ValueError(f"{path.name} must be valid UTF-8") from error
+
+
+def validate_skill_structure(directory):
+    content = read_structure_text(directory / "SKILL.md")
+    match = FRONTMATTER.match(content)
+    if not match:
+        raise ValueError("SKILL.md must start with a complete '---' frontmatter block")
+    fields = read_yaml_mapping(match[1] + "\n", "SKILL.md", first_line=2)
+    if unexpected := fields.keys() - SKILL_FIELDS:
+        raise ValueError(f"Unexpected SKILL.md frontmatter keys: {', '.join(sorted(unexpected))}")
+
+    name = fields.get("name")
+    if (not isinstance(name, str) or len(name) > 64
+            or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name)):
+        raise ValueError("SKILL.md name must be 1–64 lowercase ASCII letters, digits and single interior hyphens")
+    if name != directory.name:
+        raise ValueError(f"SKILL.md name {name!r} must match the skill folder {directory.name!r}")
+
+    description = fields.get("description")
+    if not isinstance(description, str) or not description.strip() or len(description) > 1024:
+        raise ValueError("SKILL.md description must be a non-empty string of at most 1024 characters")
+    if description.lstrip().startswith("[TODO:") or "<" in description or ">" in description:
+        raise ValueError("SKILL.md description cannot contain angle brackets or begin with [TODO:")
+    if "compatibility" in fields:
+        compatibility = fields["compatibility"]
+        if not isinstance(compatibility, str) or len(compatibility) > 500:
+            raise ValueError("SKILL.md compatibility must be a string of at most 500 characters")
+    for field in ("disable-model-invocation", "user-invocable"):
+        if field in fields and not isinstance(fields[field], bool):
+            raise ValueError(f"SKILL.md {field} must be a YAML boolean (true or false)")
+    if "argument-hint" in fields:
+        hint = fields["argument-hint"]
+        if not isinstance(hint, str) or not hint.strip():
+            raise ValueError("SKILL.md argument-hint must be a non-empty string")
+
+    marker = ""
+    for line in content[match.end():].splitlines():
+        if fence := FENCE.match(line):
+            if not marker:
+                marker = fence[1]
+            elif fence[1].startswith(marker) and not fence[2].strip():
+                marker = ""
+    if marker:
+        raise ValueError("SKILL.md contains an unclosed fenced code block")
+
+    openai = directory / "agents/openai.yaml"
+    if openai.exists() or openai.is_symlink():
+        config = read_yaml_mapping(read_structure_text(openai), "agents/openai.yaml")
+        for group in ("interface", "dependencies", "policy"):
+            if group in config and not isinstance(config[group], dict):
+                raise ValueError(f"agents/openai.yaml {group} must be a mapping")
+        policy = config.get("policy", {})
+        if "allow_implicit_invocation" in policy and not isinstance(policy["allow_implicit_invocation"], bool):
+            raise ValueError("agents/openai.yaml policy.allow_implicit_invocation must be a YAML boolean (true or false)")
 
 
 def process(args, cwd=None, timeout=120):
@@ -141,7 +393,7 @@ class Package:
         if actual.rstrip("/").removesuffix(".git") != self.policy["remote"].rstrip("/").removesuffix(".git"):
             raise PackageError("Origin does not match authorized package remote")
 
-    def discover(self):
+    def discover(self, *, check_frontmatter=True):
         skills = []
         for directory in sorted(self.skills_root.iterdir()):
             if not directory.is_dir() or not (directory / "SKILL.md").is_file():
@@ -150,18 +402,23 @@ class Package:
                 raise PackageError(f"Skill escapes managed root: {directory.name}")
             if directory.name in self.policy["upstream_skills"]:
                 raise PackageError(f"Upstream skill cannot become managed: {directory.name}")
-            content = (directory / "SKILL.md").read_text(encoding="utf-8")
-            match = re.match(r"\A---\r?\n(.*?)\r?\n---(?:\r?\n|$)", content, re.S)
-            if not match or not re.search(r"(?m)^name:\s*[\"']?" + re.escape(directory.name) + r"[\"']?\s*$", match[1]):
-                raise PackageError(f"Skill directory/frontmatter mismatch: {directory.name}")
-            if not re.search(r"(?m)^description:\s*\S", match[1]):
-                raise PackageError(f"Skill description missing: {directory.name}")
+            if check_frontmatter:
+                content = (directory / "SKILL.md").read_text(encoding="utf-8")
+                match = FRONTMATTER.match(content)
+                if not match or not re.search(r"(?m)^name:\s*[\"']?" + re.escape(directory.name) + r"[\"']?\s*$", match[1]):
+                    raise PackageError(f"Skill directory/frontmatter mismatch: {directory.name}")
+                if not re.search(r"(?m)^description:\s*\S", match[1]):
+                    raise PackageError(f"Skill description missing: {directory.name}")
             skills.append(directory.name)
         if not skills:
             raise PackageError("No skills found in the authorized source")
         return skills
 
-    def structure(self, validator, validation_python):
+    def structure(self, validator=None, validation_python=None):
+        if validator is None:
+            return self.builtin_structure()
+        if validation_python is None:
+            raise PackageError("structure needs --validator and --validation-python")
         validator, validation_python = validator.resolve(), validation_python.resolve()
         if not validator.is_file() or not validation_python.is_file():
             raise PackageError(f"Structure check needs existing validator and interpreter: {validator}, {validation_python}")
@@ -175,6 +432,22 @@ class Package:
             output = check.stdout + check.stderr
             result["checks"].append({"skill": name, "exit_code": check.returncode,
                                      "output": output[:2000], "output_truncated": len(output) > 2000})
+        result["status"] = "verified" if all(check["exit_code"] == 0 for check in result["checks"]) else "validation_failed"
+        return result
+
+    def builtin_structure(self):
+        result = {"validator": "builtin:cross-host", "checks": []}
+        try:
+            skills = self.discover(check_frontmatter=False)
+        except PackageError as error:
+            return dict(result, status="validation_failed", error=str(error))
+        for name in skills:
+            try:
+                validate_skill_structure(self.skills_root / name)
+                check = {"exit_code": 0, "output": "Skill structure is valid"}
+            except (OSError, ValueError, RecursionError) as error:
+                check = {"exit_code": 1, "output": str(error)}
+            result["checks"].append({"skill": name, **check})
         result["status"] = "verified" if all(check["exit_code"] == 0 for check in result["checks"]) else "validation_failed"
         return result
 
@@ -396,8 +669,8 @@ def main():
     parser.add_argument("--revision", help="Full verified commit SHA for installation checks")
     parser.add_argument("--skills-manager-cli", type=Path)
     parser.add_argument("--plan", type=Path, help="Saved preflight JSON, with any explicitly authorized new deployment choices")
-    parser.add_argument("--validator", type=Path)
-    parser.add_argument("--validation-python", type=Path)
+    parser.add_argument("--validator", type=Path, help="Optional external structure validator")
+    parser.add_argument("--validation-python", type=Path, help="Interpreter with PyYAML for the external validator")
     parser.add_argument("--allow-rename", action="append", default=[], metavar="OLD=NEW")
     args = parser.parse_args()
     try:
@@ -411,8 +684,6 @@ def main():
             renames[new] = old
         package = Package(args.source)
         if args.action == "structure":
-            if args.validator is None or args.validation_python is None:
-                raise PackageError("structure needs --validator and --validation-python")
             result = package.structure(args.validator, args.validation_python)
         else:
             if args.revision is None:

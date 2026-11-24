@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -193,6 +194,104 @@ class SourceChecks(PackageFixture):
         with patch.object(manager.os, "walk", side_effect=unreadable), self.assertRaises(PermissionError):
             manager.directory_fingerprint(self.source / "skills/first")
 
+
+class BuiltinStructureChecks(PackageFixture):
+    def structure_cli(self, source):
+        return subprocess.run(
+            [sys.executable, str(ROOT / "tools/skill_package.py"), "structure", "--source", str(source)],
+            capture_output=True, text=True, encoding="utf-8",
+        )
+
+    def test_current_skills_pass_builtin_structure(self):
+        shutil.rmtree(self.source / "skills")
+        shutil.copytree(ROOT / "skills", self.source / "skills", symlinks=True)
+        run = self.structure_cli(self.source)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        result = json.loads(run.stdout)
+        self.assertEqual(result["validator"], "builtin:cross-host")
+        self.assertEqual(result["status"], "verified")
+        expected = {file.parent.name for file in (ROOT / "skills").glob("*/SKILL.md")}
+        self.assertEqual({check["skill"] for check in result["checks"]}, expected)
+        self.assertTrue(all(check["exit_code"] == 0 for check in result["checks"]))
+
+    def test_accepts_cross_host_fields_and_openai_structure(self):
+        self.write("skills/first/SKILL.md", (
+            '---\nname: "first" # skill ID\n'
+            "description: >-\n  A folded description\n  spans two lines.\n"
+            "compatibility: |\n  Works without third-party libraries.\n"
+            "disable-model-invocation: true\nuser-invocable: true\n"
+            "argument-hint: '[file #1]'\n"
+            'metadata:\n  author: "测试: Example"\n  version: \'It\'\'s a string\'\n'
+            "---\n\n"
+            "- ```python\n  pass\n  ```\n"
+            "~~~text\nan example\n~~~~\n"
+        ))
+        self.write("skills/first/agents/openai.yaml", (
+            'interface:\n  display_name: "测试"\n'
+            "dependencies:\n  tools:\n    - type: mcp\n      url: https://example.invalid/mcp\n"
+            "policy:\n  allow_implicit_invocation: false # manual only\n"
+        ))
+        result = self.package.structure()
+        self.assertEqual(result["status"], "verified", result)
+
+    def test_rejects_bad_skill_metadata(self):
+        for fields, expected in (
+            ("name: first\ndescription: test\nunknown-key: value", "unknown-key"),
+            ("name: first\ndescription: test\nmalformed", "expected a YAML mapping entry"),
+            ("name: first\ndescription: test\ndescription: duplicate", "duplicate mapping key"),
+            ("name: first\ndescription: test\ndisable-model-invocation: 'true'", "disable-model-invocation"),
+            ("name: first\ndescription: test\nuser-invocable: yes", "user-invocable"),
+            ("name: first\ndescription: test\nargument-hint: ''", "argument-hint"),
+            ("name: first\ndescription: test\ncompatibility: false", "compatibility"),
+            ("name: first\ndescription: test\ncompatibility: >-\n  " + "a" * 501, "compatibility"),
+            ("name: first\ndescription: 1024", "description"),
+            ("name: first\ndescription: ''", "description"),
+            ("name: first\ndescription: 'Use <tag>'", "description"),
+            ("name: first\ndescription: '[TODO: update]'", "description"),
+            ("name: first\ndescription: |-\n  " + "a" * 1025, "description"),
+            ("name: first--second\ndescription: test", "name"),
+            ("name: wrong\ndescription: test", "must match the skill folder"),
+        ):
+            with self.subTest(expected=expected, fields=fields[:100]):
+                self.write("skills/first/SKILL.md", f"---\n{fields}\n---\n")
+                result = self.package.structure()
+                self.assertEqual(result["status"], "validation_failed", result)
+                failed, passed = result["checks"]
+                self.assertEqual((failed["skill"], failed["exit_code"]), ("first", 1))
+                self.assertIn(expected, failed["output"])
+                self.assertEqual((passed["skill"], passed["exit_code"]), ("improve-workflow", 0))
+
+    def test_rejects_bad_openai_structure(self):
+        for yaml, expected in (
+            ("policy:\n  allow_implicit_invocation: maybe\n", "policy.allow_implicit_invocation"),
+            ('policy:\n  allow_implicit_invocation: "false"\n', "policy.allow_implicit_invocation"),
+            ("policy: true\n", "policy must be a mapping"),
+            ("interface:\n  display_name\n", "expected a YAML mapping entry"),
+        ):
+            with self.subTest(yaml=yaml):
+                self.write("skills/first/agents/openai.yaml", yaml)
+                result = self.package.structure()
+                self.assertEqual(result["status"], "validation_failed", result)
+                self.assertIn(expected, result["checks"][0]["output"])
+
+    def test_cli_rejects_unclosed_fence(self):
+        self.write("skills/first/SKILL.md", "---\nname: first\ndescription: test\n---\n~~~~text\n~~~\n")
+        run = self.structure_cli(self.source)
+        self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
+        result = json.loads(run.stdout)
+        self.assertEqual(result["status"], "validation_failed")
+        self.assertIn("unclosed fenced code block", result["checks"][0]["output"])
+
+    def test_rejects_incomplete_frontmatter_and_invalid_utf8(self):
+        for content in (b"---\nname: first\ndescription: test\n---extra\n",
+                        b"---\rname: first\rdescription: test\r---\r", b"\xff"):
+            with self.subTest(content=content):
+                path = self.source / "skills/first/SKILL.md"
+                path.write_bytes(content)
+                result = self.package.structure()
+                self.assertEqual(result["status"], "validation_failed", result)
+                self.assertEqual(result["checks"][0]["skill"], "first")
+                self.assertEqual(result["checks"][0]["exit_code"], 1)
 
 if __name__ == "__main__":
     unittest.main()
