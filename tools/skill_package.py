@@ -66,11 +66,6 @@ COUPLING_PATH_OWNERS = {
     "skills/project-handoff/hooks/**": "project-handoff host hooks",
     "skills/project-handoff/references/compaction-reminder.md": "project-handoff host hooks",
     "skills/project-handoff/references/handoff.md": "project-handoff host continuation",
-    "skills/software-updates/SKILL.md": "workstation software maintenance",
-    "skills/software-updates/references/services.md": "workstation service configuration",
-    "skills/software-updates/references/status.md": "workstation installation evidence",
-    "skills/software-updates/references/targets.md": "workstation update targets",
-    "skills/software-updates/references/unigetui.md": "workstation package manager",
 }
 # ASCII boundaries keep a Chinese suffix such as 的 from hiding an identifier.
 COUPLING_RULES = {

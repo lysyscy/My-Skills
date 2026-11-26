@@ -142,12 +142,15 @@ class CouplingChecks(unittest.TestCase):
             "docs/t3-adapter.md", "docs/archive/historical/AGENTS.md", "docs/receipts/AGENTS.md",
             "docs/agents/host-adapters.md", "skills/project-handoff/hooks/AGENTS.md",
             "skills/project-handoff/references/compaction-reminder.md", "tools/host_instructions.py",
-            "skills/software-updates/references/targets.md",
         ):
             self.write(name, "T3 Code: use preview_open and hooks.json in Codex.")
         shared = [
             "docs/agents/host-rules.md", "docs/agents/t3-adapter.md",
-            "skills/project-handoff/references/general.md", "skills/software-updates/references/general.md",
+            "skills/project-handoff/references/general.md", "skills/software-updates/SKILL.md",
+            *[
+                f"skills/software-updates/references/{name}.md"
+                for name in ("general", "services", "status", "targets", "unigetui")
+            ],
         ]
         for name in shared:
             self.write(name, "Use preview_open.")

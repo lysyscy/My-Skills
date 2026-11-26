@@ -100,18 +100,19 @@
     const body = add(table, 'tbody');
     const row = add(body, 'tr');
     add(add(row, 'td'), 'code', item.id);
-    const name = add(row, 'th', item.name);
+    const name = add(row, 'th', item.target);
     name.scope = 'row';
-    if (item.security) add(add(name, 'div'), 'span', '安全更新', 'badge warning');
-    add(row, 'td', item.installed, 'version').dataset.label = '已装版本';
-    add(row, 'td', item.target, 'version target').dataset.label = '目标版本';
-    add(row, 'td', item.scope).dataset.label = '影响范围';
-    const status = add(row, 'td');
-    status.dataset.label = '状态';
-    add(status, 'span', item.status, item.ready ? 'badge' : 'badge warning');
-    const button = add(status, 'button', '详情', 'detail-button');
+    add(row, 'td', item.current, 'version').dataset.label = '当前版本';
+    add(row, 'td', item.candidate, 'version target').dataset.label = '候选版本';
+    const risk = add(row, 'td', item.risk);
+    risk.dataset.label = '风险';
+    if (item.safe) add(add(risk, 'div'), 'span', '风险可控', 'badge');
+    const action = add(row, 'td', item.action);
+    action.dataset.label = '建议动作';
+    if (!item.ready) add(add(action, 'div'), 'span', '未就绪', 'badge warning');
+    const button = add(action, 'button', '详情', 'detail-button');
     button.type = 'button';
-    button.setAttribute('aria-label', `${item.id} ${item.name} 详情`);
+    button.setAttribute('aria-label', `${item.id} ${item.target} 详情`);
     button.setAttribute('aria-expanded', 'false');
     const detail = add(body, 'tr', '', 'detail');
     detail.id = `detail-${item.id}`;
@@ -138,15 +139,21 @@
     });
   }
 
-  document.getElementById('date').textContent = data.caption;
+  document.getElementById('date').textContent = `${data.batch} · ${data.caption}`;
   const counts = document.getElementById('counts');
-  for (const [count, label] of [[allRows.filter(row => row.ready).length, '可进入更新流程'], [allRows.filter(row => row.security).length, '安全更新'], [allRows.filter(row => !row.ready).length + data.pending.length, '待确认'], [data.current.length, '无更新记录']]) {
+  const metrics = [
+    [allRows.filter(row => row.ready).length, '可进入验证'],
+    [allRows.filter(row => row.safe).length, '风险可控候选'],
+    [allRows.filter(row => !row.ready).length, '未就绪候选'],
+    [data.pending.length, '待确认事项'],
+    [data.current.length, '无更新记录'],
+  ];
+  for (const [count, label] of metrics) {
     const part = add(counts, 'span');
     add(part, 'strong', String(count));
     part.append(` ${label}`);
   }
 
-  if (!allRows.length) add(report, 'p', '本批没有更新候选。');
   data.groups.forEach((group, index) => {
     const anchor = `group-${index}`;
     add(navigation, 'a', group.name).href = `#${anchor}`;
@@ -162,11 +169,11 @@
     const table = add(wrapper, 'table');
     table.setAttribute('role', 'table');
     const heading = add(add(table, 'thead'), 'tr');
-    for (const label of ['编号', '组件', '已装版本', '目标版本', '影响范围', '状态']) add(heading, 'th', label).scope = 'col';
+    for (const label of ['编号', '目标', '当前版本', '候选版本', '风险', '建议动作']) add(heading, 'th', label).scope = 'col';
     group.items.forEach(item => renderRow(table, item));
   });
 
-  for (const [id, title, list, collapsed] of [['pending', '待确认与未完成检查', data.pending, false], ['current', '确认无更新', data.current, true]]) {
+  for (const [id, title, list, collapsed] of [['pending', '待确认事项', data.pending, false], ['current', '确认无更新', data.current, true]]) {
     if (!list.length) continue;
     add(navigation, 'a', title).href = `#${id}`;
     const block = add(report, collapsed ? 'details' : 'section', '', 'other');
