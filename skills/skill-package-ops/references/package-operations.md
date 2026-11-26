@@ -44,7 +44,9 @@ My Skills 用 Git 编辑、验证和发布源；官方 Skills Manager 管理中�
 
 结构检查运行 `uv run python tools/skill_package.py structure --source '<候选源>'`。内置跨宿主验证器使用 Python 标准库，逐技能检查 Agent Skills 核心字段、跨宿主调用扩展、正文代码围栏和可选的 `agents/openai.yaml`。推送和 PR 的单测也会检查实际技能目录。行为变更按相关场景另行取证。
 
-技能结构通过后，命令继续核对通用规则、技能与工具中的宿主绑定，以及扫描范围内的 Markdown 相对链接。单独核对任意项目时运行 `uv run python tools/skill_package.py coupling --source '<项目根>'`，用 `--json` 读取诊断。默认读取项目根的 `coupling-exceptions.json`，也可用 `--exceptions` 指定另一个 JSON 文件。每条例外包含仓内相对 `path`、`rule_id`、`line_sha256`、`owner` 和 `reason`。行哈希用 UTF-8 编码计算，保留空白，去掉行尾换行。例外必须命中唯一一行，所有相对链接仍需可达。
+技能结构通过后，命令继续检查 `AGENTS.md`、`docs/agents/`、技能入口与配套参考和模板，以及 `tools/` 脚本中的宿主绑定。相对链接检查也覆盖仓库入口、贡献指南、编码规范、指南、参考文档、架构、决策记录和需求文档。单独核对任意项目时运行 `uv run python tools/skill_package.py coupling --source '<项目根>'`，用 `--json` 读取诊断。
+
+确认需要保留宿主绑定时，把例外写在命中行。Markdown 用 `<!-- coupling-ignore: <rule_id> <reason> -->`，Python 和 PowerShell 用 `# coupling-ignore: <rule_id> <reason>`，JavaScript（含 `.mjs` 和 `.cjs`）用 `// coupling-ignore: <rule_id> <reason>`。注释需要有效规则 ID 和原因，只豁免同行的该规则。修复 `broken-relative-link` 报告的断链。
 
 需要指定外部验证器时加 `--validator '<验证器>' --validation-python '<可 import yaml 的解释器>'`。工具先探测 PyYAML，再逐技能调用指定验证器，区分 `environment_blocked` 和 `validation_failed`。执行外部验证器前核实其副作用。
 

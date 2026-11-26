@@ -4,7 +4,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -214,17 +213,12 @@ class SourceChecks(PackageFixture):
 class BuiltinStructureChecks(PackageFixture):
     def structure_cli(self, source):
         return subprocess.run(
-            [sys.executable, str(ROOT / "tools/skill_package.py"), "structure", "--source", str(source)],
-            capture_output=True, text=True, encoding="utf-8",
+            [sys.executable, str(ROOT / "tools/skill_package.py"), "structure", "--source", "."],
+            cwd=source, capture_output=True, text=True, encoding="utf-8",
         )
 
     def test_current_skills_pass_builtin_structure(self):
-        shutil.rmtree(self.source / "skills")
-        shutil.copytree(ROOT / "skills", self.source / "skills", symlinks=True)
-        exceptions = json.loads((ROOT / "coupling-exceptions.json").read_text(encoding="utf-8"))
-        skill_exceptions = [entry for entry in exceptions if entry["path"].startswith("skills/")]
-        self.write("coupling-exceptions.json", json.dumps(skill_exceptions))
-        run = self.structure_cli(self.source)
+        run = self.structure_cli(ROOT)
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
         result = json.loads(run.stdout)
         self.assertEqual(result["validator"], "builtin:cross-host")

@@ -9,6 +9,7 @@ import argparse
 from bisect import bisect_right
 import hashlib
 from html import unescape
+from io import StringIO
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -17,6 +18,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tokenize
 from urllib.parse import unquote, urlsplit
 from urllib.request import Request, urlopen
 
@@ -39,12 +41,14 @@ YAML_ESCAPES = {
 }
 
 
-COUPLING_DOCUMENTS = (
-    "**/AGENTS.md", "CONTRIBUTING.md", "CODING_STANDARDS.md", "README.md",
-    "docs/agents/**/*.md", "docs/guides/**/*.md", "docs/reference/**/*.md",
-    "docs/adr/**/*.md", "docs/architecture/**/*.md", "docs/architecture*.md",
-    "docs/requirements.md", "skills/**/SKILL.md", "skills/**/references/**/*.md",
+COUPLING_CONTRACT_DOCUMENTS = (
+    "**/AGENTS.md", "docs/agents/**/*.md", "skills/**/SKILL.md", "skills/**/references/**/*.md",
     "skills/**/templates/**/*.md", "agent-skills/**/SKILL.md", "agent-skills/**/references/**/*.md",
+)
+COUPLING_LINK_DOCUMENTS = (
+    *COUPLING_CONTRACT_DOCUMENTS, "CONTRIBUTING.md", "CODING_STANDARDS.md", "README.md",
+    "docs/guides/**/*.md", "docs/reference/**/*.md", "docs/adr/**/*.md",
+    "docs/architecture/**/*.md", "docs/architecture*.md", "docs/requirements.md",
 )
 COUPLING_TOOL_SUFFIXES = {".py", ".js", ".mjs", ".cjs", ".ps1"}
 COUPLING_IGNORED_DIRECTORIES = {
@@ -72,24 +76,24 @@ COUPLING_PATH_OWNERS = {
 COUPLING_RULES = {
     rule_id: (re.compile(rf"(?<![A-Za-z0-9_])(?:{pattern})(?![A-Za-z0-9_])", re.ASCII | re.IGNORECASE), message)
     for rule_id, pattern, message in (
-        ("pstack-package", r"t3-pstack", "Name the workflow pstack and resolve its implementation through the active host."),
+        ("pstack-package", r"t3-pstack",  # coupling-ignore: pstack-package Defines the package name this rule detects.
+         "Name the workflow pstack and resolve its implementation through the active host."),
         ("pstack-qualified", r"(?<!-)pstack:(?:[a-z0-9][a-z0-9_-]*|\*)",
          "Resolve the unqualified skill name through the active host."),
-        ("t3-runtime", r"T3[ \t-]*Code|T3_ACP_MCP_CALL|T3CODE_[a-z0-9_]*",
+        ("t3-runtime", r"T3[ \t-]*Code|T3_ACP_MCP_CALL|T3CODE_[a-z0-9_]*",  # coupling-ignore: t3-runtime Defines the runtime names this rule detects.
          "Put runtime-specific setup in its host adapter."),
         ("host-tool",
          r"mcp__t3_code(?:_direct)?__[a-z0-9_]+"
          r"|t3_(?:attachment|environment|pending_request|preview|project|queue|submit_output|theme|thread|workflow|worktree)[a-z0-9_]*"
-         r"|delegate_task|spawn_agent|task_status|task_cancel|orchestrator_capabilities|create_threads"
+         r"|delegate_task|spawn_agent|task_status|task_cancel|orchestrator_capabilities|create_threads"  # coupling-ignore: host-tool Defines the orchestration tools this rule detects.
          r"|preview_(?:act|close|dialog|evaluate|list|navigate|open|recording_(?:start|stop)|resize"
          r"|set_appearance|snapshot|status|wait_for|\*)|device_(?:close|list|open|screenshot)|html_(?:preview|render)",
          "Use the active host's tool entry or put the concrete call in its adapter."),
-        ("host-brand",
-         r"Codex|Claude(?:[ \t-]+Code)?|Antigravity|DeepSeek[ \t-]+Harness|DSH|Grok[ \t-]+Build"
-         r"|MiniMax(?:[ \t-]+Code)?|WorkBuddy|CodeBuddy|OpenCode|Gemini[ \t-]+CLI|Copilot|(?-i:Cursor)",
-         "Refer to the active host or record the concrete host in its adapter."),
-        ("host-config", r"models\.md|hooks\.json|CODEX_HOME|CODEX_CLI_PATH|codex-runtimes|CLAUDE_(?:HOME|CONFIG_DIR)",
-         "Put the concrete configuration name in its host adapter."),
+        ("host-config",
+         r"models\.md|hooks\.json|CODEX_HOME|CODEX_CLI_PATH|codex-runtimes|CLAUDE_(?:HOME|CONFIG_DIR)"  # coupling-ignore: host-config Defines the configuration names this rule detects.
+         r"""|(?:[a-z]:[\\/]+|(?<![\w./\\:-])[\\/]+)(?:[^\\/\n"'`<>|?*:]+[\\/]+)*"""
+         r"AppData[\\/]+app[\\/]+codex(?![\w.-])",
+         "Put the concrete configuration name or cache path in its host adapter."),
     )
 }
 
@@ -108,6 +112,22 @@ MARKDOWN_ATX = re.compile(r"^ {0,3}#{1,6}(?:[ \t]+|$)(.*?)(?:[ \t]+#+)?[ \t]*$")
 MARKDOWN_SETEXT = re.compile(r"^ {0,3}(?:=+|-+)[ \t]*$")
 MARKDOWN_HTML_ANCHOR = re.compile(r"""<[a-z][^>\n]*?\s(?:id|name)=["']([^"']+)["']""", re.IGNORECASE)
 MARKDOWN_ABSOLUTE = re.compile(r"^(?:[a-z][a-z0-9+.-]*:|[/\\]|~/)", re.ASCII | re.IGNORECASE)
+MARKDOWN_COMMENT = re.compile(r"<!--(?P<comment>.*?)-->", re.DOTALL)
+MARKDOWN_COMMENT_TOKENS = re.compile(rf"{MARKDOWN_INLINE_CODE.pattern}|(?<!\\){MARKDOWN_COMMENT.pattern}", re.DOTALL)
+JAVASCRIPT_COMMENT_TOKENS = re.compile(
+    r"//(?P<comment>[^\n]*)|/\*.*?\*/"
+    r"""|"(?:\\[\s\S]|[^"\\\n])*"|'(?:\\[\s\S]|[^'\\\n])*'|`(?:\\[\s\S]|[^`\\])*`"""
+    r"|(?:^|(?<=[(=,:!?{\[;|&])|(?<==>)|\b(?:return|case|throw|yield)\b)[ \t]*"
+    r"/(?![*/])(?:\\[^\n]|\[(?:\\[^\n]|[^\]\\\n])*\]|[^/\\[\n])+/[a-z]*",
+    re.DOTALL | re.MULTILINE,
+)
+POWERSHELL_COMMENT_TOKENS = re.compile(
+    r"""(?<![^\s'"(){}\[\],;=|&])#(?P<comment>[^\n]*)|<#.*?#>"""
+    r"""|@"[ \t]*\n.*?^"@|@'[ \t]*\n.*?^'@"""
+    r"""|"(?:`[\s\S]|""|[^"`])*"|'(?:''|[^'])*'|`[\s\S]""",
+    re.DOTALL | re.MULTILINE,
+)
+COUPLING_IGNORE_MARKER = "coupling-ignore:"
 
 
 class PackageError(RuntimeError):
@@ -392,37 +412,12 @@ def coupling_files(root):
             relative = PurePosixPath(path.relative_to(root).as_posix())
             if relative.parts[0] == "tools" and relative.suffix.lower() in COUPLING_TOOL_SUFFIXES:
                 yield relative, path
-            elif relative.suffix == ".md" and any(relative.full_match(pattern) for pattern in COUPLING_DOCUMENTS):
+            elif relative.suffix == ".md" and any(relative.full_match(pattern) for pattern in COUPLING_LINK_DOCUMENTS):
                 yield relative, path
 
 
-def read_coupling_exceptions(path):
-    entries = read_json(path)
-    if not isinstance(entries, list):
-        raise PackageError(f"{path}: expected a JSON array of coupling exceptions")
-    keys = set()
-    fields = {"path", "rule_id", "line_sha256", "owner", "reason"}
-    for number, entry in enumerate(entries, 1):
-        where = f"{path}: entry {number}"
-        if (not isinstance(entry, dict) or entry.keys() != fields
-                or any(not isinstance(value, str) or not value.strip() for value in entry.values())):
-            raise PackageError(f"{where}: expected nonempty strings for {', '.join(sorted(fields))}")
-        name, rule_id, digest = (entry[field] for field in ("path", "rule_id", "line_sha256"))
-        relative = PurePosixPath(name)
-        if (MARKDOWN_ABSOLUTE.match(name) or "\\" in name or ".." in relative.parts
-                or not relative.parts or relative.as_posix() != name):
-            raise PackageError(f"{where}: path must use a repository-relative POSIX spelling")
-        if rule_id not in COUPLING_RULES or not re.fullmatch(r"[0-9a-f]{64}", digest):
-            raise PackageError(f"{where}: expected a coupling rule ID and a lowercase SHA-256 of the source line")
-        key = (name, rule_id, digest)
-        if key in keys:
-            raise PackageError(f"{where}: duplicate coupling exception")
-        keys.add(key)
-    return keys
-
-
-def markdown_body(content):
-    """Mask frontmatter, fenced examples, and comments without shifting line numbers."""
+def markdown_body(content, *, strip_comments=True):
+    """Mask frontmatter and fenced examples without shifting line numbers."""
     content = content.removeprefix("\ufeff")
     if frontmatter := FRONTMATTER.match(content):
         content = "\n" * frontmatter[0].count("\n") + content[frontmatter.end():]
@@ -436,7 +431,10 @@ def markdown_body(content):
                 marker = fence[1]
             elif fence[1].startswith(marker) and not fence[2].strip():
                 marker = ""
-    return re.sub(r"<!--.*?-->", lambda match: "\n" * match[0].count("\n"), "\n".join(lines), flags=re.DOTALL)
+    body = "\n".join(lines)
+    if strip_comments:
+        body = MARKDOWN_COMMENT.sub(lambda match: "\n" * match[0].count("\n"), body)
+    return body
 
 
 def markdown_links(body):
@@ -495,55 +493,90 @@ def relative_markdown_link_error(root, document, destination, anchors):
 def coupling_violation(path, rule_id, line, source_line, match, message):
     return {
         "path": path, "rule_id": rule_id, "line": line,
-        "line_sha256": hashlib.sha256(source_line.encode("utf-8")).hexdigest() if source_line is not None else None,
+        "line_sha256": hashlib.sha256(source_line.encode("utf-8")).hexdigest(),
         "match": match, "message": message,
     }
+
+
+def coupling_comments(content, suffix):
+    if suffix == ".py":
+        try:
+            for token in tokenize.generate_tokens(StringIO(content).readline):
+                if token.type == tokenize.COMMENT:
+                    yield token.start[0], token.start[1], token.end[1], token.string[1:]
+        except (tokenize.TokenError, SyntaxError):
+            # Incomplete Python source still gets checked for coupling.
+            pass
+        return
+
+    if suffix == ".md":
+        content = markdown_body(content, strip_comments=False)
+        tokens = MARKDOWN_COMMENT_TOKENS
+    elif suffix == ".ps1":
+        tokens = POWERSHELL_COMMENT_TOKENS
+    else:
+        tokens = JAVASCRIPT_COMMENT_TOKENS
+    starts = [0, *(match.end() for match in re.finditer("\n", content))]
+    for match in tokens.finditer(content):
+        comment = match["comment"]
+        if comment is not None and "\n" not in comment:
+            number = bisect_right(starts, match.start())
+            offset = starts[number - 1]
+            yield number, match.start() - offset, match.end() - offset, comment
 
 
 def coupling_file_violations(root, relative, path, anchors):
     if not path.is_file() or not path.resolve().is_relative_to(root):
         raise PackageError(f"{relative}: expected a readable file within the source repository")
-    content = path.read_text(encoding="utf-8")
+    content = path.read_text(encoding="utf-8-sig")
     lines = content.split("\n")
     name = relative.as_posix()
-    if not any(relative.full_match(pattern) for pattern in COUPLING_PATH_OWNERS):
+    suffix = relative.suffix.lower()
+    markdown = suffix == ".md"
+    contract = not markdown or any(relative.full_match(pattern) for pattern in COUPLING_CONTRACT_DOCUMENTS)
+    rules = COUPLING_RULES.items() if contract and not any(
+        relative.full_match(pattern) for pattern in COUPLING_PATH_OWNERS
+    ) else ()
+    directives = {}
+    if COUPLING_IGNORE_MARKER in content:
+        for number, start, end, comment in coupling_comments(content, suffix):
+            if (comment := comment.lstrip()).startswith(COUPLING_IGNORE_MARKER):
+                payload = comment.removeprefix(COUPLING_IGNORE_MARKER).strip()
+                directives.setdefault(number, []).append((start, end, payload))
+
+    if rules or directives:
         for number, line in enumerate(lines, 1):
-            for rule_id, (pattern, message) in COUPLING_RULES.items():
-                if match := pattern.search(line):
+            checked_line = line
+            ignored_rules = set()
+            for start, end, payload in directives.get(number, ()):
+                checked_line = checked_line[:start] + " " * (end - start) + checked_line[end:]
+                fields = payload.split(maxsplit=1)
+                if len(fields) != 2:
+                    error = "A coupling ignore requires a rule ID and a reason."
+                elif fields[0] not in COUPLING_RULES:
+                    error = f"Rule {fields[0]} is unknown or cannot be ignored."
+                else:
+                    ignored_rules.add(fields[0])
+                    continue
+                yield coupling_violation(name, "invalid-ignore", number, line, payload, error)
+            for rule_id, (pattern, message) in rules:
+                if rule_id not in ignored_rules and (match := pattern.search(checked_line)):
                     yield coupling_violation(name, rule_id, number, line, match[0], message)
-    if relative.suffix == ".md":
+    if markdown:
         for number, destination in markdown_links(markdown_body(content)):
             if error := relative_markdown_link_error(root, path, destination, anchors):
                 yield coupling_violation(name, "broken-relative-link", number, lines[number - 1], destination, error)
 
 
-def check_coupling(source, exceptions_path=None):
+def check_coupling(source):
     root = source.resolve()
     if not root.is_dir():
         raise PackageError(f"Coupling source must be a directory: {root}")
-    default_path = root / "coupling-exceptions.json"
-    if exceptions_path is None and (default_path.exists() or default_path.is_symlink()):
-        exceptions_path = default_path
-    exceptions = read_coupling_exceptions(exceptions_path) if exceptions_path is not None else set()
-    violations, matched, anchors = [], {}, {}
+    violations, anchors = [], {}
     files = sorted(coupling_files(root))
     for relative, path in files:
-        for finding in coupling_file_violations(root, relative, path, anchors):
-            key = (finding["path"], finding["rule_id"], finding["line_sha256"])
-            if key in exceptions:
-                matched.setdefault(key, []).append(finding)
-            else:
-                violations.append(finding)
-    for key in sorted(exceptions):
-        matches = matched.get(key, [])
-        if len(matches) == 1:
-            continue
-        path, rule_id, digest = key
-        violations.extend(matches)
-        reason = "matches more than one source line" if matches else "no longer matches a violation"
-        violation = coupling_violation(path, "stale-exception", None, None, rule_id, f"Exception {reason}.")
-        violations.append(dict(violation, line_sha256=digest))
-    violations.sort(key=lambda value: (value["path"], value["line"] or 0, value["rule_id"]))
+        violations.extend(coupling_file_violations(root, relative, path, anchors))
+    violations.sort(key=lambda value: (value["path"], value["line"], value["rule_id"]))
     return {
         "status": "validation_failed" if violations else "verified",
         "source": str(root), "files_checked": len(files), "violations": violations,
@@ -956,7 +989,6 @@ def main():
         "structure", "coupling", "preflight", "confirm-install", "confirm-source", "confirm-distribution",
     ])
     parser.add_argument("--source", type=Path, default=Path(__file__).resolve().parent.parent)
-    parser.add_argument("--exceptions", type=Path, help="Coupling exception JSON (default: coupling-exceptions.json in source)")
     parser.add_argument("--json", action="store_true", help="Emit coupling diagnostics as JSON")
     parser.add_argument("--revision", help="Full verified commit SHA for installation checks")
     parser.add_argument("--skills-manager-cli", type=Path)
@@ -968,8 +1000,8 @@ def main():
     try:
         if args.allow_rename and args.action != 'preflight':
             raise PackageError('Rename approvals are only accepted for preflight')
-        if (args.exceptions is not None or args.json) and args.action != "coupling":
-            raise PackageError("--exceptions and --json are only accepted for coupling")
+        if args.json and args.action != "coupling":
+            raise PackageError("--json is only accepted for coupling")
         renames = {}
         for value in args.allow_rename:
             old, separator, new = value.partition('=')
@@ -977,7 +1009,7 @@ def main():
                 raise PackageError('Use one distinct OLD=NEW value for each approved rename')
             renames[new] = old
         if args.action == "coupling":
-            result = check_coupling(args.source, args.exceptions)
+            result = check_coupling(args.source)
         elif args.action == "structure":
             result = Package(args.source).structure(args.validator, args.validation_python)
         else:
@@ -1003,9 +1035,7 @@ def main():
         print(f"Coupling blocked: {result['error']}", file=sys.stderr)
     else:
         for finding in result["violations"]:
-            location = finding["path"]
-            if finding["line"] is not None:
-                location += f":{finding['line']}"
+            location = f"{finding['path']}:{finding['line']}"
             print(f"{location} [{finding['rule_id']}] {finding['match']}. {finding['message']}")
         print(f"Coupling: {len(result['violations'])} violation(s) in {result['files_checked']} file(s).")
     return 0 if result["status"] in {

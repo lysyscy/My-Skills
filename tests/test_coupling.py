@@ -34,23 +34,10 @@ class CouplingChecks(unittest.TestCase):
             capture_output=True, text=True, encoding="utf-8", check=False,
         )
 
-    def diagnostics(self, *options, exit_code=1):
-        run = self.run_coupling("--json", *options)
-        self.assertEqual(run.returncode, exit_code, run.stdout + run.stderr)
-        result = json.loads(run.stdout)
-        return result
-
-    def exception(self, path, line, rule="host-brand"):
-        return {
-            "path": path,
-            "rule_id": rule,
-            "line_sha256": hashlib.sha256(line.encode("utf-8")).hexdigest(),
-            "owner": "fixture adapter",
-            "reason": "Illustrates a concrete host invocation.",
-        }
-
-    def write_exceptions(self, entries, name="coupling-exceptions.json"):
-        return self.write(name, json.dumps(entries, ensure_ascii=False))
+    def diagnostics(self):
+        run = self.run_coupling("--json")
+        self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
+        return json.loads(run.stdout)
 
     def test_detects_package_tool_config_and_host_tokens_at_ascii_boundaries(self):
         cases = [
@@ -68,15 +55,21 @@ class CouplingChecks(unittest.TestCase):
             ("调用mcp__t3_code__preview_act", "host-tool", "mcp__t3_code__preview_act"),
             ("先用orchestrator_capabilities探测", "host-tool", "orchestrator_capabilities"),
             ("调用t3_thread_launch", "host-tool", "t3_thread_launch"),
-            ("Codex的入口", "host-brand", "Codex"),
-            ("Claude Code的入口", "host-brand", "Claude Code"),
-            ("由Antigravity调用", "host-brand", "Antigravity"),
             ("读取models.md文件", "host-config", "models.md"),
             ("读取hooks.json配置", "host-config", "hooks.json"),
             ("读取CODEX_HOME变量", "host-config", "CODEX_HOME"),
             ("使用codex-runtimes路径", "host-config", "codex-runtimes"),
+            ("读取 D:/AppData/app/codex/plugins", "host-config", "D:/AppData/app/codex"),
+            (r'读取 "C:\\Users\\Test User\\AppData\\app\\codex\\plugins"', "host-config",
+             r"C:\\Users\\Test User\\AppData\\app\\codex"),
+            ("读取 /mnt/d/AppData/app/codex/plugins", "host-config", "/mnt/d/AppData/app/codex"),
         ]
-        clean = "\n使用当前宿主加载的 pstack。\nmyCodexBridge pre_spawn_agent preview_status_text hooks.jsonl\n"
+        clean = (
+            "\n使用当前宿主加载的 pstack。\n"
+            "Codex 的入口、Claude Code 的入口、由 Antigravity 调用。\n"
+            "myCodexBridge pre_spawn_agent preview_status_text hooks.jsonl\n"
+            "fixtures/AppData/app/codex/plugins D:/AppData/app/codex-example/plugins\n"
+        )
         content = "\n".join(line for line, _, _ in cases) + clean
         source = self.write("AGENTS.md", content)
         result = self.diagnostics()
@@ -87,41 +80,54 @@ class CouplingChecks(unittest.TestCase):
             with self.subTest(line=line):
                 findings = [item for item in result["violations"] if item["line"] == number]
                 self.assertIn(
-                    (rule_id, match, self.exception("AGENTS.md", line)["line_sha256"]),
+                    (rule_id, match, hashlib.sha256(line.encode("utf-8")).hexdigest()),
                     [(item["rule_id"], item["match"], item["line_sha256"]) for item in findings],
                 )
         self.assertFalse(any(item["line"] > len(cases) for item in result["violations"]))
         self.assertEqual(set(self.source.iterdir()), {source})
         self.assertEqual(source.read_bytes(), content.encode("utf-8"))
 
-    def test_scans_required_project_paths_and_excludes_runtime_artifacts(self):
-        in_scope = [
-            "AGENTS.md", "packages/example/AGENTS.md", "README.md", "CONTRIBUTING.md", "CODING_STANDARDS.md",
-            "docs/agents/overview.md", "docs/guides/nested/how.md", "docs/reference/config/guide.md",
-            "docs/adr/0001.md", "docs/architecture/storage/design.md", "docs/architecture-notes.md",
-            "docs/requirements.md", "skills/group/example/SKILL.md", "skills/example/references/nested/guide.md",
+    def test_scans_contract_paths_and_preserves_wider_link_scope(self):
+        contracts = [
+            "AGENTS.md", "packages/example/AGENTS.md", "docs/agents/overview.md",
+            "skills/group/example/SKILL.md", "skills/example/references/nested/guide.md",
             "skills/example/templates/README.md", "agent-skills/example/SKILL.md",
             "agent-skills/example/references/nested/guide.md",
             *[f"tools/nested/check.{ext}" for ext in ("py", "js", "mjs", "cjs", "ps1")],
+        ]
+        links_only = [
+            "README.md", "CONTRIBUTING.md", "CODING_STANDARDS.md", "docs/guides/nested/how.md",
+            "docs/reference/config/guide.md", "docs/adr/0001.md", "docs/architecture/storage/design.md",
+            "docs/architecture-notes.md", "docs/requirements.md",
         ]
         outside_scope = [
             "docs/notes.md", "packages/example/README.md", "notes.py", "tools/helper.txt",
             "skills/example/examples/notes.md", "agent-skills/example/templates/README.md",
             ".artifacts/runs/current/AGENTS.md", ".scratch/current/AGENTS.md", "node_modules/lib/AGENTS.md",
         ]
-        for name in in_scope + outside_scope:
-            self.write(name, "调用pstack:verify")
+        for name in contracts + links_only + outside_scope:
+            self.write(name, "调用pstack:verify [help](missing.md)")
         result = self.diagnostics()
-        self.assertEqual([item["path"] for item in result["violations"]], sorted(in_scope))
+        self.assertEqual(result["files_checked"], len(contracts) + len(links_only))
+        self.assertEqual(
+            [(item["path"], item["rule_id"]) for item in result["violations"]],
+            sorted(
+                [(name, "pstack-qualified") for name in contracts]
+                + [(name, "broken-relative-link") for name in contracts + links_only if name.endswith(".md")]
+            ),
+        )
 
-    def test_skips_unreadable_pytest_cache(self):
+    def test_prunes_unreadable_cache_and_dependency_directories(self):
         self.write("README.md", "# Project\n")
-        cache = self.write("backend/.pytest_cache/AGENTS.md", "Use Codex.").parent
+        caches = {
+            self.write(f"backend/{name}/AGENTS.md", "Use preview_open. [Help](missing.md)").parent
+            for name in (".pytest_cache", "__pycache__", ".venv", "node_modules", ".git")
+        }
         scandir = os.scandir
 
         def scan(path):
-            if Path(path) == cache:
-                raise PermissionError("fixture unreadable .pytest_cache")
+            if Path(path) in caches:
+                raise PermissionError("fixture unreadable cache or dependency directory")
             return scandir(path)
 
         with patch("os.scandir", side_effect=scan):
@@ -148,70 +154,77 @@ class CouplingChecks(unittest.TestCase):
         result = self.diagnostics()
         self.assertEqual([item["path"] for item in result["violations"]], sorted(shared))
 
-    def test_exception_is_exact_to_one_path_rule_and_line_hash(self):
-        name = "AGENTS.md"
-        line = "  Codex的入口  "
-        entry = self.exception(name, line)
-        self.write(name, f"# Rules\r\n\r\n{line}\r\n")
-        self.write_exceptions([entry])
-        result = self.diagnostics(exit_code=0)
-        self.assertEqual((result["status"], result["violations"]), ("verified", []))
-
-        self.write(name, f"# Rules\n{line}\n")
-        self.assertEqual(self.diagnostics(exit_code=0)["violations"], [])
-        self.write("docs/guides/sibling.md", line)
-        result = self.diagnostics()
-        self.assertEqual([item["path"] for item in result["violations"]], ["docs/guides/sibling.md"])
-
-        self.write(name, line.rstrip() + "\n")
-        result = self.diagnostics()
+    def test_accepts_same_line_ignores_in_each_supported_file_type(self):
+        examples = {
+            "AGENTS.md": ("Use preview_open.", "<!-- {} -->"),
+            "tools/check.py": ("preview_open()", "# {}"),
+            "tools/check.ps1": ("preview_open", "# {}"),
+            **{f"tools/check.{ext}": ("const timeout = preview_open() / 2;", "// {}") for ext in ("js", "mjs", "cjs")},
+        }
+        directive = "coupling-ignore: host-tool This adapter loads CODEX_HOME before calling the tool."
+        for name, (source, comment) in examples.items():
+            self.write(name, f"{source} {comment.format(directive)}\r\n{source}\r\n")
         self.assertEqual(
-            [(item["path"], item["rule_id"], item["line"]) for item in result["violations"]],
-            [(name, "stale-exception", None), (name, "host-brand", 1), ("docs/guides/sibling.md", "host-brand", 1)],
-        )
-        self.assertEqual(result["violations"][0]["line_sha256"], entry["line_sha256"])
-
-    def test_explicit_exceptions_override_default_and_preserve_other_rules(self):
-        line = "Codex的工具调用spawn_agent"
-        self.write("AGENTS.md", line)
-        self.write_exceptions([self.exception("AGENTS.md", line, "host-tool")])
-        explicit = self.write_exceptions([self.exception("AGENTS.md", line)], "overrides.json")
-        self.assertEqual([item["rule_id"] for item in self.diagnostics()["violations"]], ["host-brand"])
-        result = self.diagnostics("--exceptions", explicit)
-        self.assertEqual([item["rule_id"] for item in result["violations"]], ["host-tool"])
-        run = self.run_coupling("--exceptions", explicit)
-        self.assertEqual(run.returncode, 1)
-        self.assertIn("AGENTS.md:1 [host-tool]", run.stdout)
-
-    def test_unused_and_ambiguous_exceptions_fail(self):
-        line = "Codex的入口"
-        name = "docs/reference/example.md"
-        self.write_exceptions([self.exception(name, line)])
-        absent = self.diagnostics()["violations"]
-        self.assertEqual([(item["rule_id"], item["match"]) for item in absent], [("stale-exception", "host-brand")])
-        self.write(name, f"{line}\n{line}\n")
-        result = self.diagnostics()
-        self.assertEqual(
-            [(item["rule_id"], item["line"]) for item in result["violations"]],
-            [("stale-exception", None), ("host-brand", 1), ("host-brand", 2)],
+            [(item["path"], item["line"], item["rule_id"]) for item in self.diagnostics()["violations"]],
+            [(name, 2, "host-tool") for name in sorted(examples)],
         )
 
-    def test_malformed_exception_records_are_blocked(self):
-        entry = self.exception("AGENTS.md", "Codex")
-        for contents in (
-            {"exceptions": [entry]},
-            [{key: value for key, value in entry.items() if key != "owner"}],
-            [{**entry, "reason": " "}],
-            [{**entry, "line_sha256": "unchanged"}],
-            [{**entry, "rule_id": "broken-relative-link"}],
-            [{**entry, "path": "../AGENTS.md"}],
-            [entry, entry],
-        ):
-            with self.subTest(contents=contents):
-                self.write_exceptions(contents)
-                result = self.diagnostics()
-                self.assertEqual(set(result), {"status", "error"})
-                self.assertEqual(result["status"], "blocked")
+    def test_ignores_only_the_named_rule_on_the_annotated_line(self):
+        self.write("AGENTS.md", "\n".join([
+            "Read hooks.json before calling preview_open. <!-- coupling-ignore: host-tool The adapter owns this call. -->",
+            "<!-- coupling-ignore: host-tool The adapter owns this call. -->",
+            "Call preview_open.",
+            "Read hooks.json before calling preview_open."
+            " <!-- coupling-ignore: host-config Required file in this adapter. -->"
+            " <!-- coupling-ignore: host-tool Required call in this adapter. -->",
+        ]))
+        self.assertEqual(
+            [(item["line"], item["rule_id"]) for item in self.diagnostics()["violations"]],
+            [(1, "host-config"), (3, "host-tool")],
+        )
+
+    def test_ignore_text_in_literals_does_not_apply(self):
+        directive = "coupling-ignore: host-tool Only an example"
+        examples = {
+            "AGENTS.md": f"Use preview_open. `<!-- {directive} -->`",
+            "tools/check.cjs": f"const example = /[// {directive}]/; preview_open();",
+            "tools/check.py": f'print("preview_open # {directive}")',
+            "tools/check.js": f'const example = "preview_open // {directive}";',
+            "tools/check.ps1": f'Write-Output "preview_open # {directive}"',
+        }
+        for name, line in examples.items():
+            self.write(name, line)
+        self.assertEqual(
+            [(item["path"], item["line"], item["rule_id"]) for item in self.diagnostics()["violations"]],
+            [(name, 1, "host-tool") for name in sorted(examples)],
+        )
+
+    def test_reports_missing_fields_and_unknown_rules_at_the_comment(self):
+        payloads = ("", "host-tool", "host-brand Removed rule")
+        self.write("tools/check.py", "\n".join(
+            f"preview_open()  # coupling-ignore: {payload}" for payload in payloads
+        ))
+        result = self.diagnostics()
+        self.assertEqual(result["status"], "validation_failed")
+        self.assertEqual(
+            [(item["line"], item["match"]) for item in result["violations"] if item["rule_id"] == "invalid-ignore"],
+            list(enumerate(payloads, 1)),
+        )
+        self.assertEqual(
+            [item["line"] for item in result["violations"] if item["rule_id"] == "host-tool"],
+            [1, 2, 3],
+        )
+
+    def test_retired_sidecar_is_not_loaded(self):
+        self.write("AGENTS.md", "Use preview_open.")
+        sidecar = self.write("coupling-exceptions.json", "invalid JSON")
+        self.assertEqual(
+            [(item["path"], item["rule_id"]) for item in self.diagnostics()["violations"]],
+            [("AGENTS.md", "host-tool")],
+        )
+        run = self.run_coupling("--exceptions", sidecar)
+        self.assertEqual(run.returncode, 2)
+        self.assertIn("unrecognized arguments: --exceptions", run.stderr)
 
     def test_checks_relative_files_heading_fragments_and_reference_definitions(self):
         self.write("docs/guides/说明.md", "# 中文标题\n\n## 重复\n\n## 重复\n")
@@ -261,13 +274,23 @@ class CouplingChecks(unittest.TestCase):
         result = self.diagnostics()
         self.assertEqual([(item["line"], item["match"]) for item in result["violations"]], [(3, "missing.md")])
 
-    def test_adapter_and_line_exception_do_not_waive_broken_links(self):
-        line = "Codex [help](missing.md)"
-        self.write("AGENTS.md", line)
-        self.write_exceptions([self.exception("AGENTS.md", line)])
+    def test_adapter_and_inline_ignores_do_not_waive_broken_links(self):
+        self.write(
+            "AGENTS.md",
+            "Use preview_open [help](missing.md). <!-- coupling-ignore: host-tool The adapter supplies this tool. -->",
+        )
+        self.write(
+            "README.md",
+            "[help](missing.md) <!-- coupling-ignore: broken-relative-link An attempted link waiver. -->",
+        )
         self.write("docs/agents/host-adapters.md", "T3 Code [help](missing.md)")
         result = self.diagnostics()
         self.assertEqual(
             [(item["path"], item["rule_id"]) for item in result["violations"]],
-            [("AGENTS.md", "broken-relative-link"), ("docs/agents/host-adapters.md", "broken-relative-link")],
+            [
+                ("AGENTS.md", "broken-relative-link"),
+                ("README.md", "broken-relative-link"),
+                ("README.md", "invalid-ignore"),
+                ("docs/agents/host-adapters.md", "broken-relative-link"),
+            ],
         )
