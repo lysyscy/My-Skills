@@ -1,11 +1,12 @@
 ---
 name: improve-workflow
-description: 复盘当前或指定会话，按真实轨迹发现工作环境与个人方法的改进机会；创建、修改或分发自有技能时选择唯一维护源和发布分支。只读分析止于结论，普通项目任务不触发全面复盘。
+description: 仅在用户明确点名 improve-workflow 时使用，用于 My-Skills 的维护与分发，或跨宿主能力评估。日常会话复盘和纠偏用 t3-pstack 的 reflect 或 correct。
+disable-model-invocation: true
 ---
 
 # 复盘与个人工作流优化
 
-这是个人日常复盘入口；按下列四步独立完成，不必每次再读取 retro。普通产品任务或单独查阅本技能参考，不隐式启动全面复盘。用户明确要求完整原版时，按下文的上游分支处理。
+仅在用户明确点名本技能时进入。维护或分发 My-Skills 时读下文包维护分支。评估跨宿主能力时按下列四步取证。日常会话复盘和纠偏使用 t3-pstack 的 `reflect` 或 `correct`。
 
 用户要求分析、复盘或审查而未授权本次实施时，只交付结论。已有个人包自动维护授权不能覆盖本次明确只读，也不授权产品项目改造。创建、修改或分发自有技能而无复盘需求时，直接读[维护与分发规范](references/package-operations.md)，无需先走复盘步骤。
 
@@ -49,4 +50,4 @@ description: 复盘当前或指定会话，按真实轨迹发现工作环境与�
 
 获准维护自有技能时，按 [package-operations.md](references/package-operations.md) 选择唯一维护源、固定执行基线并完成适用的发布核验；候选不能改写自身验收或旧基线来取得通过。跨技能按真实入口、所属来源与固定版本定位，不假设安装相邻。实施与收尾按项目已采用的 CONTRIBUTING 和当次验收；修改项目指令按项目现行文档约定；涉及共同模板、接入或布置更新时才进入 setup 相应方法，不在复盘层另加一轮审查、验收或发布流程。
 
-外部能力更新、适配或完整调用原版时，读 [improvement-selection.md 的上游分支](references/improvement-selection.md#上游适配与完整调用)。日常复盘消费本技能的方法；原版继续由原渠道独立维护。
+外部能力更新、适配或完整调用原版时，读 [improvement-selection.md 的上游分支](references/improvement-selection.md#上游适配与完整调用)。原版继续由原渠道独立维护。

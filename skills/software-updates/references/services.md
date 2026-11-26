@@ -17,7 +17,7 @@
 本机有两处独立磁盘安装，分别检查版本及候选、按各自入口应用更新，并逐宿主核验加载。
 
 - **DSH desktop profile** 安装在 `C:\Users\Administrator\.dsh\profiles\desktop\node_modules\@vectorize-io\hindsight-coding-agents`，由 profile 的 pnpm 和本地精确版本补丁维护，profile 的 `patches` 保留部署副本。查新版或 DS Bot 输入格式变化时，从 `D:\dev\tooling\workstation\dsh\README.md` 导航至 `patches\hindsight-coding-agents\<版本>\README.md`，按当前版本定位补丁，对照目标发行源码决定保留、适配、缩减或退役。补丁兼容性确认后再升级，分别记录回归和加载证据。
-- **Codex / Antigravity 共用 staged 实例** 安装在 `C:\Users\Administrator\.hindsight\coding-agents`，经官方 `update` 应用精确版本，可独立于 DSH 升级。升级、重装后或 T3 Antigravity 未触发 Hindsight 时，按 `D:\dev\tooling\workstation\docs\t3-antigravity-hindsight-wrapper.md` 核对 `hooks.json` 的包装脚本接线，确认目标发行版的 `antigravityCwd` 能否匹配多个工作区，据此决定保留或退役。
+- **Codex / Antigravity / Grok Build 共用 staged 实例** 安装在 `C:\Users\Administrator\.hindsight\coding-agents`，自动更新已关闭，经官方 `update` 应用获准的精确版本，可独立于 DSH 升级。升级或重装后按 `D:\dev\tooling\workstation\docs\hindsight-staged-subagent-filter.md` 检查并重放子代理过滤补丁，运行 `patch.mjs check` 和 `verify.mjs`。同时复核 Grok 的 `grok-build` 接线与延迟交付，以及 Antigravity 包装脚本和目标发行版的 `antigravityCwd`。分别验证正常线程和显式 MCP 的实际加载与项目路由。
 
 获授权更新后，在现有接入范围内核实际宿主参数、项目目录、工具输入和分库结果。按当前配置处理停用项目和默认工作区，不以更新为由接入新的 harness。工具接口变化时核实际调用者；缓存刷新或重启按宿主规程与当次授权执行。回退材料按收尾条件释放。
 

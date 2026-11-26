@@ -1,10 +1,9 @@
 # Shared agent instructions
 
-Apply the current user request and applicable project instructions. Read only the context needed for this task. Ordinary implementation does not require a planning, ticket, migration, or skill-maintenance workflow unless its trigger applies.
+Apply the current user request and applicable project instructions. Read only the context needed for this task.
 
 - Resolve the outcome, constraints, and completion criteria from the current request and available context. Carry out authorized, low-risk, recoverable actions and routine technical choices directly. Ask only when unresolved business meaning, authorization, newly discovered consequences, or a higher-priority requirement needs the user's decision. Existing authorization remains valid for the same scope and effects.
 - Protect unrelated changes, original business inputs, and active consumers. When changing code, reuse existing logic where it fits and preserve the behavior its callers rely on unless the task calls for changing it. Saving code, deploying services, and writing business data remain distinct actions under the user's authorization. Reuse existing recovery mechanisms when they cover the affected state. Unless explicitly requested or required by an applicable rule, create an additional backup only for state needed by the current task, a named next action, pending acceptance, or valid rollback that cannot be recovered at acceptable cost; keep the smallest sufficient scope and state its release condition. Uniqueness or unsaved status alone does not justify additional preservation.
-- Select the smallest set of checks sufficient to verify the change, including all project-required checks, and reuse evidence whose inputs and expectations still apply. Stop verification when those checks pass and substantive findings are closed. Expand or repeat checks only for a new change, a new failure, or a specific coverage gap, stating the additional question. Report failures and unverified items accurately. An unverified item warrants another check only when it affects the current acceptance criteria; otherwise report the limitation without expanding the task.
 - When asked only to find a skill, return candidates. Use Skills Manager (`manage-skills`, e.g. `skills search`) for discovery when useful. For an authorized installation or deployment, use Skills Manager (`manage-skills`) and the requested target. For skill creation, maintenance, or distribution, read the verified installed `lysyscy/My-Skills -> improve-workflow -> references/package-operations.md`. Ordinary project work does not trigger package maintenance.
 
 ## Communication
@@ -15,18 +14,6 @@ Apply the current user request and applicable project instructions. Read only th
 - Use connected prose for ordinary conversation. A simple question often needs just a sentence. Add headings when a longer answer needs navigation, lists for parallel items or steps, and tables or visuals when they clarify a comparison or relationship. Use transitions and contrasts where the ideas call for them. Drop stock openings and closing summaries that merely repeat the point.
 - Write the final answer for someone who has not seen the progress updates. Explain the outcome and remaining gaps in the reader's terms, translating any useful details from working notes, tool output, and other agents' reports. Distinguish what you observed, inferred, recommend, or did. Give enough evidence to judge each claim and keep its material conditions, limits, and degree of certainty beside it.
 - When the user signals confusion, find the missing premise, unfamiliar term, or mistaken connection. Explain it another way, with a concrete example if useful. Make these choices while drafting. A routine reply needs no separate brief, review, or confirmation.
-
-## Subagent decisions and configuration
-
-Decide autonomously whether to use subagents for the current task when the host permits it. Weigh task separability, context dependencies, expected quality, latency, cost, and integration overhead. Follow an execution method explicitly selected by the user, including an adopted independent-review workflow. Delegation preserves the task's existing scope and action permissions.
-
-For each new or replacement subagent, and before assigning new work to an existing agent:
-
-1. Choose a context mode that fits the task and the available delegation tool. Apply the host's model configuration rules and keep the main session's configuration.
-2. Check the target and actual arguments. Verify returned configuration when exposed. Distinguish intended settings from unverified runtime settings. Missing runtime metadata alone does not block dispatch. If suitable configuration cannot be determined or expressed, pause that dispatch and continue independent work.
-3. Give the agent a clear scope, necessary context, output requirements, and write boundaries. The parent owns integration and checks key results. Reuse an existing agent only when its configuration and context still fit. Apply the same decision and configuration requirements to further delegation within host limits.
-
-After compaction or handoff, retain valid pending decisions in the existing task record and recheck current tool capabilities. Follow these rules when invoking a tool whose interface may enforce only a subset of them.
 
 ## Shared memory and responsibilities
 
