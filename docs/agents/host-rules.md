@@ -42,6 +42,6 @@ For generated artifacts, use the project's adopted lifecycle entry. At closeout,
 
 Use web search or fetch for public pages that need no interaction. For browser interaction, use the entry available in the current host.
 
-- **Local development previews** in T3 Code use `preview_status` followed by `preview_open`.
+- **Local development previews** use the active host's built-in preview entry when available.
 - **Everyday signed-in Edge** uses the host's native browser extension when available. Otherwise use the official `playwright-cli` Skill where deployed. On this Windows workstation, start a named session with `playwright-edge.cmd <session>` using the host's launcher options, then reuse `playwright-cli --session=<session>` for later commands.
 - **Deep browser diagnostics** such as performance traces and Lighthouse use the isolated `edge-devtools` entry when configured.

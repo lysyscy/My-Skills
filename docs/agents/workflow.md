@@ -6,7 +6,7 @@
 
 当前包结构见 [architecture.md](../architecture.md)；核验实现、规则及清单的权威分别是 tools/、skills/ 和 [skill-package.json](../../skill-package.json)。本轮范围、固定版本、验证及未决项留在任务已有记录；不建立发布状态机。Git common dir 下的固定旧运行按[接续与退役规则](../../skills/skill-package-ops/references/package-operations.md#失败并发与旧运行)保留或退出。
 
-新工程任务使用宿主已加载的 `chhoumann/t3-pstack`。本机采用的版本、`SessionStart` 钩子和实际加载结果记录在独立的 `workstation` 仓库中，见该仓的 `docs/t3-pstack.md`。
+新工程任务使用当前宿主已加载的 pstack。本机采用的版本、宿主入口与加载证据归 `workstation` 仓库的宿主维护文档。
 
 ## 全局指令由 Magpie 管理
 
@@ -34,4 +34,4 @@
 
 2026-10-30 采用个人包 `e1ab206` 的旧运行区。2026-11-11 切换本项目新开发产物到项目内固定运行时，版本以部署清单为准。固定旧任务从[资源入口](../guides/workspace-lifecycle.md)选路。
 
-t3-pstack 待办优先用宿主计划工具。需要落盘的决策日志和待办文件按[产物接入](../guides/artifact-lifecycle.md#本项目实际接入)登记为 `work`，在返回的 `.artifacts/runs/<run-id>/` 目录内通过租约读写。当前固定运行时用 `close --group <run-id>` 结项。组内即时释放用的 `--discard-work` 待运行时升级后启用。
+pstack 待办优先用宿主计划工具。需要落盘的决策日志和待办文件按[产物接入](../guides/artifact-lifecycle.md#本项目实际接入)登记为 `work`，在返回的 `.artifacts/runs/<run-id>/` 目录内通过租约读写。当前固定运行时用 `close --group <run-id>` 结项。组内即时释放用的 `--discard-work` 待运行时升级后启用。

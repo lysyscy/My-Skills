@@ -49,7 +49,8 @@ class SetupFixtureTests(unittest.TestCase):
         rules = workflow.read_text(encoding="utf-8")
         self.assertIn("poteto-mode", rules)
         self.assertIn("package.json", rules)
-        self.assertIn("t3-pstack:create-verification-skill", rules)
+        self.assertIn("当前宿主的 pstack 入口", rules)
+        self.assertIn("通过当前宿主调用 create-verification-skill", rules)
         self.assertNotRegex(entry + rules, r"to-spec|to-tickets|triage|code-review|implement-solo-spec")
 
     def test_new_product_files_and_commits_are_rejected(self):

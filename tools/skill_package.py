@@ -6,16 +6,18 @@ Git publishes the source; Skills Manager owns updates and deployment.
 from __future__ import annotations
 
 import argparse
+from bisect import bisect_right
 import hashlib
+from html import unescape
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import stat
 import subprocess
 import sys
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 from urllib.request import Request, urlopen
 
 
@@ -35,6 +37,75 @@ YAML_ESCAPES = {
     "f": "\f", "r": "\r", "e": "\x1b", " ": " ", '"': '"', "/": "/", "\\": "\\",
     "N": "\x85", "_": "\xa0", "L": "\u2028", "P": "\u2029",
 }
+
+
+COUPLING_DOCUMENTS = (
+    "**/AGENTS.md", "CONTRIBUTING.md", "CODING_STANDARDS.md", "README.md",
+    "docs/agents/**/*.md", "docs/guides/**/*.md", "docs/reference/**/*.md",
+    "docs/adr/**/*.md", "docs/architecture/**/*.md", "docs/architecture*.md",
+    "docs/requirements.md", "skills/**/SKILL.md", "skills/**/references/**/*.md",
+    "skills/**/templates/**/*.md", "agent-skills/**/SKILL.md", "agent-skills/**/references/**/*.md",
+)
+COUPLING_TOOL_SUFFIXES = {".py", ".js", ".mjs", ".cjs", ".ps1"}
+COUPLING_IGNORED_DIRECTORIES = {
+    ".git", ".artifacts", ".scratch", ".worktrees", ".venv", "__pycache__", "node_modules",
+}
+# These paths document concrete adapters, installed software, or historical evidence.
+COUPLING_PATH_OWNERS = {
+    "docs/t3-*.md": "workstation host configuration",
+    "docs/archive/**": "project archive",
+    "docs/receipts/**": "release evidence",
+    "docs/agents/host-adapters.md": "Magpie migration snapshot",
+    "tools/host_instructions.py": "Magpie migration comparison",
+    "skills/project-handoff/hooks/**": "project-handoff host hooks",
+    "skills/project-handoff/references/compaction-reminder.md": "project-handoff host hooks",
+    "skills/project-handoff/references/handoff.md": "project-handoff host continuation",
+    "skills/software-updates/SKILL.md": "workstation software maintenance",
+    "skills/software-updates/references/services.md": "workstation service configuration",
+    "skills/software-updates/references/status.md": "workstation installation evidence",
+    "skills/software-updates/references/targets.md": "workstation update targets",
+    "skills/software-updates/references/unigetui.md": "workstation package manager",
+}
+# ASCII boundaries keep a Chinese suffix such as 的 from hiding an identifier.
+COUPLING_RULES = {
+    rule_id: (re.compile(rf"(?<![A-Za-z0-9_])(?:{pattern})(?![A-Za-z0-9_])", re.ASCII | re.IGNORECASE), message)
+    for rule_id, pattern, message in (
+        ("pstack-package", r"t3-pstack", "Name the workflow pstack and resolve its implementation through the active host."),
+        ("pstack-qualified", r"(?<!-)pstack:(?:[a-z0-9][a-z0-9_-]*|\*)",
+         "Resolve the unqualified skill name through the active host."),
+        ("t3-runtime", r"T3[ \t-]*Code|T3_ACP_MCP_CALL|T3CODE_[a-z0-9_]*",
+         "Put runtime-specific setup in its host adapter."),
+        ("host-tool",
+         r"mcp__t3_code(?:_direct)?__[a-z0-9_]+"
+         r"|t3_(?:attachment|environment|pending_request|preview|project|queue|submit_output|theme|thread|workflow|worktree)[a-z0-9_]*"
+         r"|delegate_task|spawn_agent|task_status|task_cancel|orchestrator_capabilities|create_threads"
+         r"|preview_(?:act|close|dialog|evaluate|list|navigate|open|recording_(?:start|stop)|resize"
+         r"|set_appearance|snapshot|status|wait_for|\*)|device_(?:close|list|open|screenshot)|html_(?:preview|render)",
+         "Use the active host's tool entry or put the concrete call in its adapter."),
+        ("host-brand",
+         r"Codex|Claude(?:[ \t-]+Code)?|Antigravity|DeepSeek[ \t-]+Harness|DSH|Grok[ \t-]+Build"
+         r"|MiniMax(?:[ \t-]+Code)?|WorkBuddy|CodeBuddy|OpenCode|Gemini[ \t-]+CLI|Copilot|(?-i:Cursor)",
+         "Refer to the active host or record the concrete host in its adapter."),
+        ("host-config", r"models\.md|hooks\.json|CODEX_HOME|CODEX_CLI_PATH|codex-runtimes|CLAUDE_(?:HOME|CONFIG_DIR)",
+         "Put the concrete configuration name in its host adapter."),
+    )
+}
+
+MARKDOWN_LABEL = r"\[(?:\\.|[^\[\]\\\n]|\[[^\[\]\n]*\])*\]"
+MARKDOWN_DESTINATION = r"<[^<>\n]+>|(?:\\.|[^\s()<>\\]|\((?:\\.|[^\s()<>\\])*\))+"
+MARKDOWN_TITLE = r"""(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\))"""
+MARKDOWN_LINK = re.compile(
+    rf"(?<!\\)(?P<label>{MARKDOWN_LABEL})\([ \t\n]*(?P<inline>{MARKDOWN_DESTINATION})"
+    rf"(?:[ \t\n]+{MARKDOWN_TITLE})?[ \t\n]*\)"
+    rf"|^ {{0,3}}{MARKDOWN_LABEL}:[ \t]*(?:\n[ \t]*)?(?P<reference>{MARKDOWN_DESTINATION})"
+    rf"(?=[ \t]*$|[ \t]+{MARKDOWN_TITLE}[ \t]*$)",
+    re.MULTILINE,
+)
+MARKDOWN_INLINE_CODE = re.compile(r"(?<!`)(`+)(?!`)(?:[^\n]|\n(?![ \t]*\n))*?(?<!`)\1(?!`)")
+MARKDOWN_ATX = re.compile(r"^ {0,3}#{1,6}(?:[ \t]+|$)(.*?)(?:[ \t]+#+)?[ \t]*$")
+MARKDOWN_SETEXT = re.compile(r"^ {0,3}(?:=+|-+)[ \t]*$")
+MARKDOWN_HTML_ANCHOR = re.compile(r"""<[a-z][^>\n]*?\s(?:id|name)=["']([^"']+)["']""", re.IGNORECASE)
+MARKDOWN_ABSOLUTE = re.compile(r"^(?:[a-z][a-z0-9+.-]*:|[/\\]|~/)", re.ASCII | re.IGNORECASE)
 
 
 class PackageError(RuntimeError):
@@ -307,6 +378,176 @@ def linked(path):
         return False
 
 
+def coupling_files(root):
+    def raise_walk_error(error):
+        raise error
+
+    for directory, subdirs, files in root.walk(on_error=raise_walk_error):
+        subdirs[:] = [name for name in subdirs
+                      if name not in COUPLING_IGNORED_DIRECTORIES and not linked(directory / name)]
+        for name in files:
+            path = directory / name
+            relative = PurePosixPath(path.relative_to(root).as_posix())
+            if relative.parts[0] == "tools" and relative.suffix.lower() in COUPLING_TOOL_SUFFIXES:
+                yield relative, path
+            elif relative.suffix == ".md" and any(relative.full_match(pattern) for pattern in COUPLING_DOCUMENTS):
+                yield relative, path
+
+
+def read_coupling_exceptions(path):
+    entries = read_json(path)
+    if not isinstance(entries, list):
+        raise PackageError(f"{path}: expected a JSON array of coupling exceptions")
+    keys = set()
+    fields = {"path", "rule_id", "line_sha256", "owner", "reason"}
+    for number, entry in enumerate(entries, 1):
+        where = f"{path}: entry {number}"
+        if (not isinstance(entry, dict) or entry.keys() != fields
+                or any(not isinstance(value, str) or not value.strip() for value in entry.values())):
+            raise PackageError(f"{where}: expected nonempty strings for {', '.join(sorted(fields))}")
+        name, rule_id, digest = (entry[field] for field in ("path", "rule_id", "line_sha256"))
+        relative = PurePosixPath(name)
+        if (MARKDOWN_ABSOLUTE.match(name) or "\\" in name or ".." in relative.parts
+                or not relative.parts or relative.as_posix() != name):
+            raise PackageError(f"{where}: path must use a repository-relative POSIX spelling")
+        if rule_id not in COUPLING_RULES or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise PackageError(f"{where}: expected a coupling rule ID and a lowercase SHA-256 of the source line")
+        key = (name, rule_id, digest)
+        if key in keys:
+            raise PackageError(f"{where}: duplicate coupling exception")
+        keys.add(key)
+    return keys
+
+
+def markdown_body(content):
+    """Mask frontmatter, fenced examples, and comments without shifting line numbers."""
+    content = content.removeprefix("\ufeff")
+    if frontmatter := FRONTMATTER.match(content):
+        content = "\n" * frontmatter[0].count("\n") + content[frontmatter.end():]
+    marker = ""
+    lines = []
+    for line in content.split("\n"):
+        fence = FENCE.match(line)
+        lines.append("" if marker or fence else line)
+        if fence:
+            if not marker:
+                marker = fence[1]
+            elif fence[1].startswith(marker) and not fence[2].strip():
+                marker = ""
+    return re.sub(r"<!--.*?-->", lambda match: "\n" * match[0].count("\n"), "\n".join(lines), flags=re.DOTALL)
+
+
+def markdown_links(body):
+    body = MARKDOWN_INLINE_CODE.sub(lambda match: re.sub(r"[^\n]", " ", match[0]), body)
+    starts = [0, *(match.end() for match in re.finditer("\n", body))]
+    for link in MARKDOWN_LINK.finditer(body):
+        destination = link["inline"] or link["reference"]
+        destination = unescape(re.sub(r"\\([!-\/:-@\[-`{-~])", r"\1", destination.removeprefix("<").removesuffix(">")))
+        if not MARKDOWN_ABSOLUTE.match(destination):
+            yield bisect_right(starts, link.start()), destination
+
+
+def markdown_anchors(content):
+    names = set()
+    headings = set()
+    previous = ""
+    for line in markdown_body(content).split("\n"):
+        names.update(MARKDOWN_HTML_ANCHOR.findall(line))
+        if atx := MARKDOWN_ATX.match(line):
+            title = atx[1]
+        elif MARKDOWN_SETEXT.fullmatch(line):
+            title = previous
+        else:
+            previous = line
+            continue
+        previous = ""
+        if not title:
+            continue
+        title = MARKDOWN_LINK.sub(lambda match: match["label"][1:-1] if match["label"] else "", title)
+        title = unescape(re.sub(r"<[^>]*>", "", title)).strip().lower()
+        base = re.sub(r"[^\w -]", "", title).replace(" ", "-")
+        slug, suffix = base, 1
+        while slug in headings:
+            slug = f"{base}-{suffix}"
+            suffix += 1
+        headings.add(slug)
+    return names | headings
+
+
+def relative_markdown_link_error(root, document, destination, anchors):
+    address, _, fragment = destination.partition("#")
+    relative = unquote(address.partition("?")[0])
+    target = (document.parent / relative).resolve() if relative else document
+    if not target.is_relative_to(root):
+        return "Relative link points outside the source repository."
+    if not target.exists():
+        return "Relative link target does not exist."
+    if fragment and target.is_file() and target.suffix.lower() == ".md":
+        if target not in anchors:
+            anchors[target] = markdown_anchors(target.read_text(encoding="utf-8"))
+        if unquote(fragment) not in anchors[target]:
+            return "Markdown anchor does not exist in the target."
+    return None
+
+
+def coupling_violation(path, rule_id, line, source_line, match, message):
+    return {
+        "path": path, "rule_id": rule_id, "line": line,
+        "line_sha256": hashlib.sha256(source_line.encode("utf-8")).hexdigest() if source_line is not None else None,
+        "match": match, "message": message,
+    }
+
+
+def coupling_file_violations(root, relative, path, anchors):
+    if not path.is_file() or not path.resolve().is_relative_to(root):
+        raise PackageError(f"{relative}: expected a readable file within the source repository")
+    content = path.read_text(encoding="utf-8")
+    lines = content.split("\n")
+    name = relative.as_posix()
+    if not any(relative.full_match(pattern) for pattern in COUPLING_PATH_OWNERS):
+        for number, line in enumerate(lines, 1):
+            for rule_id, (pattern, message) in COUPLING_RULES.items():
+                if match := pattern.search(line):
+                    yield coupling_violation(name, rule_id, number, line, match[0], message)
+    if relative.suffix == ".md":
+        for number, destination in markdown_links(markdown_body(content)):
+            if error := relative_markdown_link_error(root, path, destination, anchors):
+                yield coupling_violation(name, "broken-relative-link", number, lines[number - 1], destination, error)
+
+
+def check_coupling(source, exceptions_path=None):
+    root = source.resolve()
+    if not root.is_dir():
+        raise PackageError(f"Coupling source must be a directory: {root}")
+    default_path = root / "coupling-exceptions.json"
+    if exceptions_path is None and (default_path.exists() or default_path.is_symlink()):
+        exceptions_path = default_path
+    exceptions = read_coupling_exceptions(exceptions_path) if exceptions_path is not None else set()
+    violations, matched, anchors = [], {}, {}
+    files = sorted(coupling_files(root))
+    for relative, path in files:
+        for finding in coupling_file_violations(root, relative, path, anchors):
+            key = (finding["path"], finding["rule_id"], finding["line_sha256"])
+            if key in exceptions:
+                matched.setdefault(key, []).append(finding)
+            else:
+                violations.append(finding)
+    for key in sorted(exceptions):
+        matches = matched.get(key, [])
+        if len(matches) == 1:
+            continue
+        path, rule_id, digest = key
+        violations.extend(matches)
+        reason = "matches more than one source line" if matches else "no longer matches a violation"
+        violation = coupling_violation(path, "stale-exception", None, None, rule_id, f"Exception {reason}.")
+        violations.append(dict(violation, line_sha256=digest))
+    violations.sort(key=lambda value: (value["path"], value["line"] or 0, value["rule_id"]))
+    return {
+        "status": "validation_failed" if violations else "verified",
+        "source": str(root), "files_checked": len(files), "violations": violations,
+    }
+
+
 def resource_bytes(path, content):
     if Path(path).suffix.lower() in {".md", ".yaml", ".yml", ".json", ".txt", ".py", ".toml", ".ps1", ".sh"}:
         if any(byte < 32 and byte not in (9, 10, 13) or byte == 127 for byte in content):
@@ -428,7 +669,15 @@ class Package:
 
     def structure(self, validator=None, validation_python=None):
         if validator is None:
-            return self.builtin_structure()
+            result = self.builtin_structure()
+        else:
+            result = self.external_structure(validator, validation_python)
+        if result["status"] == "verified":
+            result["coupling"] = check_coupling(self.root)
+            result["status"] = result["coupling"]["status"]
+        return result
+
+    def external_structure(self, validator, validation_python):
         if validation_python is None:
             raise PackageError("structure needs --validator and --validation-python")
         validator, validation_python = validator.resolve(), validation_python.resolve()
@@ -701,8 +950,12 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["structure", "preflight", "confirm-install", "confirm-source", "confirm-distribution"])
+    parser.add_argument("action", choices=[
+        "structure", "coupling", "preflight", "confirm-install", "confirm-source", "confirm-distribution",
+    ])
     parser.add_argument("--source", type=Path, default=Path(__file__).resolve().parent.parent)
+    parser.add_argument("--exceptions", type=Path, help="Coupling exception JSON (default: coupling-exceptions.json in source)")
+    parser.add_argument("--json", action="store_true", help="Emit coupling diagnostics as JSON")
     parser.add_argument("--revision", help="Full verified commit SHA for installation checks")
     parser.add_argument("--skills-manager-cli", type=Path)
     parser.add_argument("--plan", type=Path, help="Saved preflight JSON, with any explicitly authorized new deployment choices")
@@ -713,16 +966,20 @@ def main():
     try:
         if args.allow_rename and args.action != 'preflight':
             raise PackageError('Rename approvals are only accepted for preflight')
+        if (args.exceptions is not None or args.json) and args.action != "coupling":
+            raise PackageError("--exceptions and --json are only accepted for coupling")
         renames = {}
         for value in args.allow_rename:
             old, separator, new = value.partition('=')
             if not separator or not old or not new or old == new or '=' in new or new in renames:
                 raise PackageError('Use one distinct OLD=NEW value for each approved rename')
             renames[new] = old
-        package = Package(args.source)
-        if args.action == "structure":
-            result = package.structure(args.validator, args.validation_python)
+        if args.action == "coupling":
+            result = check_coupling(args.source, args.exceptions)
+        elif args.action == "structure":
+            result = Package(args.source).structure(args.validator, args.validation_python)
         else:
+            package = Package(args.source)
             if args.revision is None:
                 raise PackageError("Installation checks need --revision")
             if args.action == 'confirm-source':
@@ -736,11 +993,22 @@ def main():
                         raise PackageError("confirm-install needs --plan from the update preflight")
                     check = package.confirm_distribution if args.action == 'confirm-distribution' else package.confirm_install
                     result = check(cli, args.revision, read_json(args.plan))
-        print(json.dumps(result, ensure_ascii=False))
-        return 0 if result["status"] in {"verified", "preflight_ok", "installation_verified", "source_verified", "distribution_verified"} else 1
     except (PackageError, OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired) as error:
-        print(json.dumps({"status": "blocked", "error": str(error)}, ensure_ascii=False))
-        return 1
+        result = {"status": "blocked", "error": str(error)}
+    if args.action != "coupling" or args.json:
+        print(json.dumps(result, ensure_ascii=False))
+    elif result["status"] == "blocked":
+        print(f"Coupling blocked: {result['error']}", file=sys.stderr)
+    else:
+        for finding in result["violations"]:
+            location = finding["path"]
+            if finding["line"] is not None:
+                location += f":{finding['line']}"
+            print(f"{location} [{finding['rule_id']}] {finding['match']}. {finding['message']}")
+        print(f"Coupling: {len(result['violations'])} violation(s) in {result['files_checked']} file(s).")
+    return 0 if result["status"] in {
+        "verified", "preflight_ok", "installation_verified", "source_verified", "distribution_verified",
+    } else 1
 
 
 if __name__ == "__main__":

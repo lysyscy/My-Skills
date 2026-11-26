@@ -173,7 +173,9 @@ class SourceChecks(PackageFixture):
         help_result = subprocess.run([sys.executable, str(ROOT / "tools/skill_package.py"), "--help"],
                                      capture_output=True, text=True)
         choices = re.search(r"\{([^}]+)\}", help_result.stdout).group(1).split(",")
-        self.assertEqual(set(choices), {"structure", "preflight", "confirm-install", "confirm-source", "confirm-distribution"})
+        self.assertEqual(set(choices), {
+            "structure", "coupling", "preflight", "confirm-install", "confirm-source", "confirm-distribution",
+        })
         for action in ("prepare", "verify", "publish", "resume", "sync", "sync-manager", "read", "inspect"):
             result = subprocess.run([sys.executable, str(ROOT / "tools/skill_package.py"), action,
                                      "--source", str(self.home / "absent-source")], capture_output=True, text=True)
@@ -219,6 +221,9 @@ class BuiltinStructureChecks(PackageFixture):
     def test_current_skills_pass_builtin_structure(self):
         shutil.rmtree(self.source / "skills")
         shutil.copytree(ROOT / "skills", self.source / "skills", symlinks=True)
+        exceptions = json.loads((ROOT / "coupling-exceptions.json").read_text(encoding="utf-8"))
+        skill_exceptions = [entry for entry in exceptions if entry["path"].startswith("skills/")]
+        self.write("coupling-exceptions.json", json.dumps(skill_exceptions))
         run = self.structure_cli(self.source)
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
         result = json.loads(run.stdout)
@@ -227,6 +232,19 @@ class BuiltinStructureChecks(PackageFixture):
         expected = {file.parent.name for file in (ROOT / "skills").glob("*/SKILL.md")}
         self.assertEqual({check["skill"] for check in result["checks"]}, expected)
         self.assertTrue(all(check["exit_code"] == 0 for check in result["checks"]))
+        self.assertEqual(result["coupling"]["violations"], [])
+
+    def test_structure_fails_when_coupling_finds_a_host_call(self):
+        self.write("AGENTS.md", "调用preview_open预览。\n")
+        run = self.structure_cli(self.source)
+        self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
+        result = json.loads(run.stdout)
+        self.assertEqual(result["status"], "validation_failed")
+        self.assertTrue(all(check["exit_code"] == 0 for check in result["checks"]))
+        self.assertEqual(
+            [(item["path"], item["rule_id"]) for item in result["coupling"]["violations"]],
+            [("AGENTS.md", "host-tool")],
+        )
 
     def test_accepts_cross_host_fields_and_openai_structure(self):
         self.write("skills/first/SKILL.md", (

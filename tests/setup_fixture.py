@@ -92,9 +92,9 @@ def prepare(root, skill):
             put(project, "docs/agents/workflow.md", "# 项目绑定\n现行业务 docs/product.md 原地维护；effort 在 .scratch/<feature>/spec.md 与 issues/，引用业务。\n"
                 "历史 .scratch/old/ 保留；票协议见 issues.md；领域见根词汇表与 adr/。\n"
                 "实现者同步相关活资料，主 Agent 整合共有入口，merger 唯一关票，全量测试 veto 保留。\n"
-                "宿主的 t3-pstack 会话 hook 生效时自动进入 poteto-mode。\n"
+                "通过当前宿主的 pstack 入口使用 poteto-mode。\n"
                 "真实入口验证沿 package.json 的现有检查；test/helper.js 用独立临时 DB、localhost 随机端口并停止自己的子进程。\n"
-                "缺少可复用验证入口且已获准补建时，用 t3-pstack:create-verification-skill。\n"
+                "缺少可复用验证入口且已获准补建时，通过当前宿主调用 create-verification-skill。\n"
                 "无应用浏览器回归或项目 CI。文档变更定向核链接与差异。\n"
                 "待办只记引用、状态和下一步；各阶段内容真实产生时创建，验收完成且无未决才封存 effort，活需求保留。\n"
                 "接入不授权产品实施/提交/推送/生产操作；保存与临时现场处置按个人维护方法。\n")

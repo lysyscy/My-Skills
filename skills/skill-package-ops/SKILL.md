@@ -13,4 +13,4 @@ disable-model-invocation: true
 - 现有工具无法满足具体任务时，读[跨宿主能力选择](references/capability-selection.md)，核各宿主实际可用的工具、调用入口和权限。
 - 需要验证技能或指令是否改变了行为时，读[行为观察与固定版本对照](references/behavior-evaluation.md)，按实际问题选择轻量观察或严格对照。
 
-日常会话复盘用 t3-pstack 的 `reflect`，反复发生的实施错误交给 `correct`。如果 `reflect` 发现应由 My-Skills 维护的改进，指回 `skill-package-ops`，获准后修同一维护源，避免在项目里另建同义技能。
+日常会话复盘用 pstack 的 `reflect`，反复发生的实施错误交给 `correct`，按当前宿主的技能入口调用。如果 `reflect` 发现应由 My-Skills 维护的改进，指回 `skill-package-ops`，获准后修同一维护源，避免在项目里另建同义技能。
