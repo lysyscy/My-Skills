@@ -35,6 +35,6 @@
 
 ## 受管技能
 
-通过本机安装的 `manage-skills` 查询登记、来源和部署。自有技能按已安装 `improve-workflow/references/package-operations.md` 选择唯一维护源；上游版本、库内独有改动和已部署内容分别核对。
+通过本机安装的 `manage-skills` 查询登记、来源和部署。从 `lysyscy/My-Skills` 核实已安装的 `skill-package-ops`，读取该入口下的 `references/package-operations.md` 选择唯一维护源。分别核对上游版本、库内独有改动和已部署内容。
 
 检查、更新和分发沿当次授权。保留既有身份、来源和部署选择；更新检测为 `unknown` 时，在相应技能的「组件新版检查」写明「未能判断是否有更新」及已知原因。具体 My-Skills 发布与备份规则由包维护规范持有。

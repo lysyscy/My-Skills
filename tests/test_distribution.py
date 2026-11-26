@@ -48,6 +48,23 @@ class DistributionChecks(PackageFixture):
         self.assertEqual(result['source_revision'], self.revision)
         self.assertEqual(result['backup_revision'], git(self.backup, 'rev-parse', 'main'))
 
+    def test_renamed_source_is_verified_at_the_retained_backup_path(self):
+        self.rename_source('first', 'renamed-first')
+        git(self.source, 'push', 'origin', 'main')
+        self.runs[0]['head_sha'] = self.revision
+        with patch.object(manager, 'manager_json', side_effect=self.fake):
+            self.plan = self.package.preflight('fixture', self.revision, {'renamed-first': 'first'})
+        self.fake.record('first')['name'] = 'renamed-first'
+        self.fake.write_metadata('renamed-first')
+        for root in (self.fake.library, self.fake.agent_root):
+            self.fake.copy_skill('renamed-first', root, directory='first')
+        git(self.fake.library, 'add', '--all')
+        git(self.fake.library, 'commit', '-m', 'portable renamed source')
+        git(self.fake.library, 'push', 'origin', 'main')
+        result = self.confirm()
+        self.assertEqual(result['status'], 'distribution_verified')
+        self.assertEqual(result['library_aliases'], {'renamed-first': 'first'})
+
     def test_pending_failed_wrong_workflow_and_wrong_commit_ci_are_refused(self):
         for changes in ({'status': 'in_progress'}, {'conclusion': 'failure'},
                         {'head_sha': '0'*40}, {'path': '.github/workflows/other.yml'}):

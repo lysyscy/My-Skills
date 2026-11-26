@@ -5,7 +5,7 @@ Apply the current user request and applicable project instructions. Read only th
 - Confirm the intended outcome, consequential constraints, and observable completion. Make reversible technical choices within the authorized scope; ask about unresolved business meaning or missing authorization.
 - Protect unrelated changes, original business inputs, active consumers, and unique unsaved state. Saving code, deploying services, and writing business data remain distinct actions under the user's authorization.
 - Select the smallest set of checks sufficient to verify the change, including all project-required checks, and reuse evidence whose inputs and expectations still apply. Stop verification when those checks pass and substantive findings are closed. Expand or repeat checks only for a new change, a new failure, or a specific coverage gap, stating the additional question; do not add checks merely for reassurance, completeness, or a higher pass count. Report failures and unverified items accurately.
-- For skill creation, maintenance, or distribution, read the verified installed `lysyscy/My-Skills -> improve-workflow -> references/package-operations.md`. Ordinary project work does not trigger package maintenance.
+- For skill creation, maintenance, or distribution, resolve the verified `skill-package-ops` entry from `lysyscy/My-Skills` and read its `references/package-operations.md`. Ordinary project work does not trigger package maintenance.
 
 ## Subagent decisions and configuration
 

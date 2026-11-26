@@ -18,10 +18,10 @@ Python 工具只用标准库，由 [pyproject.toml](pyproject.toml)、[uv.lock](
 
 临时资源按[本项目资源规则](docs/guides/workspace-lifecycle.md)退出，保留原件、独有状态、其他任务与必要恢复依据。
 
-技能运行所需规则、脚本和参考保留在所属技能内，避免安装单个技能后丢失依赖。需要验证行为变化时按[轻量观察与严格对照的分支](skills/improve-workflow/references/behavior-evaluation.md)取证，文件与结构通过不代替真实消费效果；已固定运行保留原基线。
+技能运行所需规则、脚本和参考保留在所属技能内，避免安装单个技能后丢失依赖。需要验证行为变化时按[轻量观察与严格对照的分支](skills/skill-package-ops/references/behavior-evaluation.md)取证，文件与结构通过不代替真实消费效果；已固定运行保留原基线。
 
 ## 保存与分发
 
-授权、远端、发布分支及 CI 以 [skill-package.json](skill-package.json) 为唯一配置，本次请求优先。维护源选择、源保存、CI、Skills Manager 更新/部署及备份后验沿[包操作](skills/improve-workflow/references/package-operations.md)执行；根工具只核验，不代替实际分发。中央库或 Agent 副本不作为第二编辑源。
+授权、远端、发布分支及 CI 以 [skill-package.json](skill-package.json) 为唯一配置，本次请求优先。按[包操作](skills/skill-package-ops/references/package-operations.md)定位维护源、保存源码、核对 CI，并用 Skills Manager 分发和核验备份。根工具负责核验。只在维护源编辑技能。
 
 项目方法绑定、记忆身份和旧运行例外见[workflow](docs/agents/workflow.md)。历史试跑仅供追溯，不证明当前安装、实体设备或业务验收。

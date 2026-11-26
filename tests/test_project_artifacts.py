@@ -61,6 +61,53 @@ class ProjectArtifactsTests(unittest.TestCase):
         self.assertEqual(m.sweep(self.root, True, self.at(60))[0]['status'], 'receipt-expired')
         self.assertFalse(files.exists())
 
+    def test_discard_work_retries_partial_cleanup_without_sweeping_other_groups(self):
+        run = Path(m.register(self.root, 'pstack', 'test', 'temporary decision trail', kind='work'))
+        unrelated = Path(m.register(self.root, 'other', 'test', 'another run', kind='work'))
+        unrelated_log = unrelated / 'log.txt'
+        unrelated_log.write_text('keep', encoding='utf-8')
+        m.close(self.root, 'other', now=self.at(0))
+
+        audit = run / '.audit'
+        audit.mkdir()
+        todo = audit / 'task.todo.md'
+        todo.write_text('- [x] task', encoding='utf-8')
+        log = run / 'decisions.tsv'
+        log.write_text('decision\tresult\nclose\tcomplete\n', encoding='utf-8')
+
+        unlink = Path.unlink
+
+        def fail_for_log(path, *args, **kwargs):
+            if path == log:
+                raise PermissionError('synthetic occupied file')
+            return unlink(path, *args, **kwargs)
+
+        with patch.object(Path, 'unlink', fail_for_log):
+            with self.assertRaises(PermissionError):
+                m.close(self.root, 'pstack', now=self.at(0), discard_work=True)
+        self.assertFalse(todo.exists())
+        self.assertTrue(log.exists())
+
+        for _ in range(2):
+            result = m.close(self.root, 'pstack', now=self.at(1), discard_work=True)
+            self.assertEqual(result, {'id': 'pstack', 'status': 'deleted'})
+            self.assertEqual(set(run.iterdir()), {run / 'run.json'})
+        self.assertEqual(unrelated_log.read_text(encoding='utf-8'), 'keep')
+
+    def test_discard_work_preserves_evidence_and_active_consumers(self):
+        evidence = self.add(development=False)
+        with self.assertRaises(ValueError):
+            m.close(self.root, 'one', discard_work=True)
+        self.assertEqual((evidence / 'reports/result.txt').read_text(encoding='utf-8'), 'evidence')
+
+        run = Path(m.register(self.root, 'pstack', 'test', 'temporary checklist', kind='work'))
+        with m.consume(self.root, 'pstack'):
+            log = run / 'decisions.tsv'
+            log.write_text('in use', encoding='utf-8')
+            with self.assertRaises(ValueError):
+                m.close(self.root, 'pstack', discard_work=True)
+            self.assertEqual(log.read_text(encoding='utf-8'), 'in use')
+
     def test_abandoned_development_starts_clock_when_observed(self):
         files = self.add()
         self.ended_producer()

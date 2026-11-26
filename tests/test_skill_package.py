@@ -44,7 +44,7 @@ class PackageFixture(unittest.TestCase):
         policy["remote"] = str(self.remote)
         self.write("skill-package.json", json.dumps(policy))
         self.write(".gitignore", "__pycache__/\n*.pyc\n")
-        for name in ("first", "improve-workflow"):
+        for name in ("first", "skill-package-ops"):
             self.add_skill(name)
         self.write("skills/first/references/guide.md", "Original guide\n")
         self.revision = self.commit("initial fixture")
@@ -57,6 +57,18 @@ class PackageFixture(unittest.TestCase):
 
     def add_skill(self, name):
         self.write(f"skills/{name}/SKILL.md", f"---\nname: {name}\ndescription: Test task.\n---\n# Test\n")
+
+    def rename_source(self, old, new):
+        skills = self.source / "skills"
+        (skills / old).rename(skills / new)
+        entry = skills / new / "SKILL.md"
+        content = entry.read_text(encoding="utf-8").replace(f"name: {old}\n", f"name: {new}\n")
+        entry.write_text(content, encoding="utf-8")
+        policy = {**self.package.policy,
+                  "previous_skill_directories": {**self.package.previous_skill_directories, new: old}}
+        self.write("skill-package.json", json.dumps(policy))
+        self.revision = self.commit("rename source directory")
+        self.package = manager.Package(self.source)
 
     def commit(self, message):
         git(self.source, "add", "--all")
@@ -77,7 +89,7 @@ class SourceChecks(PackageFixture):
 
     def test_discovers_future_skills_and_protects_upstream(self):
         self.add_skill("future-third")
-        self.assertEqual(self.package.discover(), ["first", "future-third", "improve-workflow"])
+        self.assertEqual(self.package.discover(), ["first", "future-third", "skill-package-ops"])
         self.add_skill("retro")
         with self.assertRaisesRegex(manager.PackageError, "Upstream"):
             self.package.discover()
@@ -97,7 +109,7 @@ class SourceChecks(PackageFixture):
                 self.package.discover()
 
     def test_empty_package_cannot_pass_discovery(self):
-        for name in ("first", "improve-workflow"):
+        for name in ("first", "skill-package-ops"):
             (self.source / "skills" / name / "SKILL.md").unlink()
         with self.assertRaisesRegex(manager.PackageError, "No skills"):
             self.package.discover()
@@ -259,7 +271,7 @@ class BuiltinStructureChecks(PackageFixture):
                 failed, passed = result["checks"]
                 self.assertEqual((failed["skill"], failed["exit_code"]), ("first", 1))
                 self.assertIn(expected, failed["output"])
-                self.assertEqual((passed["skill"], passed["exit_code"]), ("improve-workflow", 0))
+                self.assertEqual((passed["skill"], passed["exit_code"]), ("skill-package-ops", 0))
 
     def test_rejects_bad_openai_structure(self):
         for yaml, expected in (

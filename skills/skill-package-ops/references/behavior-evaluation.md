@@ -1,6 +1,6 @@
 # 行为观察与按需严格对照
 
-由 improvement-selection 按实际需要路由；本文件不拥有实施、提交、发布或安装权限。实施与收尾按项目已采用规则及当次验收，源保存与安装核验回 [package-operations.md](package-operations.md)。
+需要验证技能或指令的行为变化时按下文取证。行为验证结束后，按本次授权走项目验收与[包操作](package-operations.md)。
 
 ## 普通调整：轻量观察
 

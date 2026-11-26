@@ -40,16 +40,17 @@ class SetupFixtureTests(unittest.TestCase):
         self.assertTrue(any("AGENTS.md" in error for error in errors))
         self.assertTrue(any("extra.md" in error for error in errors))
 
-    def test_repeat_uses_project_rules_and_only_scoped_coordination(self):
-        entry = (self.root / "repeat/AGENTS.md").read_text(encoding="utf-8")
-        package = self.skill.parents[2]
-        for name in ("coordination",):
-            target = package / f"skills/implement-solo-spec/references/{name}.md"
-            self.assertIn(f"]({target.as_posix()})", entry)
-            self.assertTrue(target.is_file())
-        self.assertNotIn("新会话同步", entry)
-        self.assertNotIn("检查同步一次", entry)
-        self.assertNotIn("implement-solo-spec/SKILL.md", entry)
+    def test_repeat_uses_project_rules_and_real_entry_verification(self):
+        project = self.root / "repeat"
+        entry = (project / "AGENTS.md").read_text(encoding="utf-8")
+        workflow = project / "docs/agents/workflow.md"
+        self.assertIn("](docs/agents/workflow.md)", entry)
+        self.assertIn("](docs/agents/issues.md)", entry)
+        rules = workflow.read_text(encoding="utf-8")
+        self.assertIn("poteto-mode", rules)
+        self.assertIn("package.json", rules)
+        self.assertIn("t3-pstack:create-verification-skill", rules)
+        self.assertNotRegex(entry + rules, r"to-spec|to-tickets|triage|code-review|implement-solo-spec")
 
     def test_new_product_files_and_commits_are_rejected(self):
         project = self.root / "existing"
@@ -274,7 +275,7 @@ class RealResourceLayoutTests(unittest.TestCase):
         self.assertEqual(policy["remote"], "https://github.com/lysyscy/My-Skills.git")
         self.catalog = []
         for directory, owner, resource in (("independent/library-a", "setup-solo-workflow", "references/document-maintenance.md"),
-                                           ("unrelated/library-b", "improve-workflow", "references/package-operations.md"),
+                                           ("unrelated/library-b", "skill-package-ops", "references/package-operations.md"),
                                            ("another/location-c", "implement-solo-spec", "SKILL.md")):
             original = source / "skills" / owner
             target = self.root / directory / owner
@@ -282,7 +283,7 @@ class RealResourceLayoutTests(unittest.TestCase):
             resources = [resource]
             if owner == "implement-solo-spec":
                 resources.extend("references/" + name + ".md" for name in ("coordination",))
-            if owner == "improve-workflow":
+            if owner == "skill-package-ops":
                 resources.append("references/behavior-evaluation.md")
             self.catalog.append({"origin": "lysyscy/My-Skills", "owner": owner,
                                  "entry": str(target / "SKILL.md"),
@@ -308,19 +309,20 @@ class RealResourceLayoutTests(unittest.TestCase):
         self.assertNotEqual(Path(record["entry"]).parent.parent, Path(self.catalog[0]["entry"]).parent.parent)
 
     def test_behavior_protocol_is_shipped_and_reachable_without_adjacent_skills(self):
-        record = next(r for r in self.catalog if r["owner"] == "improve-workflow")
+        record = next(r for r in self.catalog if r["owner"] == "skill-package-ops")
         root = Path(record["entry"]).parent
         resource = "references/behavior-evaluation.md"
         actual = read_pinned_reference(self.catalog, record["owner"], resource)
         self.assertEqual(actual, (root / resource).read_bytes())
         for pointer, target in ((root / "SKILL.md", "references/behavior-evaluation.md"),
-                                (root / "references/improvement-selection.md", "behavior-evaluation.md"),
                                 (root / "references/package-operations.md", "behavior-evaluation.md")):
             self.assertIn(f"]({target})", pointer.read_text(encoding="utf-8"))
             self.assertEqual((pointer.parent / target).read_bytes(), actual)
         setup = next(r for r in self.catalog if r["owner"] == "setup-solo-workflow")
         scenario = Path(setup["entry"]).parent / "references/setup-evaluation.md"
-        self.assertIn("references/behavior-evaluation.md", scenario.read_text(encoding="utf-8"))
+        scenario_text = scenario.read_text(encoding="utf-8")
+        self.assertIn("skill-package-ops", scenario_text)
+        self.assertIn("references/behavior-evaluation.md", scenario_text)
         foreign = dict(record, origin="other/skills")
         with self.assertRaisesRegex(ValueError, "missing or ambiguous"):
             read_pinned_reference([foreign], record["owner"], resource)

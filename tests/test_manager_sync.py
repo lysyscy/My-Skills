@@ -40,7 +40,7 @@ class FakeManager:
         source = {"type": record["source_type"], "ref": record["source_ref"],
                   "subpath": "skills/" + name, "branch": "main", **source_changes}
         (self.metadata / (record["id"] + ".json")).write_text(json.dumps({
-            "skill_id": record["id"], "path": name, "source": source}), encoding="utf-8")
+            "skill_id": record["id"], "path": Path(record["path"]).name, "source": source}), encoding="utf-8")
 
     def __call__(self, cli, *args):
         self.calls.append(args)
@@ -49,10 +49,13 @@ class FakeManager:
 
     def copy_source(self, root):
         for name in self.case.package.discover():
-            target = root / name
-            if target.is_dir():
-                shutil.rmtree(target)
-            shutil.copytree(self.case.source / "skills" / name, target)
+            self.copy_skill(name, root)
+
+    def copy_skill(self, name, root, *, directory=None):
+        target = root / (directory or name)
+        if target.is_dir():
+            shutil.rmtree(target)
+        shutil.copytree(self.case.source / "skills" / name, target)
 
 
 class ManagerChecks(PackageFixture):
@@ -100,6 +103,68 @@ class ManagerChecks(PackageFixture):
         with self.assertRaisesRegex(manager.PackageError, 'edits preserved'):
             self.preflight({'first': '旧名称'})
         self.assertEqual(target.read_text(encoding='utf-8'), 'unique local edit')
+
+    def test_source_directory_rename_keeps_original_install_and_deployment(self):
+        record = self.fake.record("first")
+        remote = self.package.policy["remote"].removesuffix(".git")
+        record["source_ref"] = remote + "/tree/main/skills/first"
+        self.fake.write_metadata("first")
+        self.rename_source("first", "renamed-first")
+        with self.assertRaisesRegex(manager.PackageError, "explicit approval"):
+            self.preflight()
+        plan = self.preflight({"renamed-first": "first"})
+        self.assertEqual(plan["renamed_skills"], {"renamed-first": "first"})
+        self.assertEqual(plan["library_aliases"], {"renamed-first": "first"})
+        self.assertEqual(plan["skills"]["renamed-first"], {
+            "id": record["id"], "tags": ["personal"], "preset_ids": ["preset-a"],
+            "deployed_to": ["fixture"],
+        })
+        with self.assertRaisesRegex(manager.PackageError, "registered the new name"):
+            self.confirm(plan)
+
+        record["name"] = "renamed-first"
+        record["source_ref"] = self.package.policy["remote"]
+        self.fake.write_metadata("renamed-first", subpath="skills/first")
+        self.fake.copy_skill("renamed-first", self.fake.library, directory="first")
+        with self.assertRaisesRegex(manager.PackageError, "subpath differs"):
+            self.confirm(plan)
+        self.fake.write_metadata("renamed-first")
+        with self.assertRaisesRegex(manager.PackageError, "missing or stale"):
+            self.confirm(plan)
+        self.fake.copy_skill("renamed-first", self.fake.agent_root, directory="first")
+        self.assertEqual(self.confirm(plan)["deployments"]["renamed-first"], ["fixture"])
+        self.assertEqual(self.preflight()["library_aliases"], plan["library_aliases"])
+        self.confirm(self.preflight())
+        with self.assertRaisesRegex(manager.PackageError, "library directory changed"):
+            self.confirm({**plan, "library_aliases": {}})
+
+    def test_source_directory_rename_protects_local_edits_and_conflicts(self):
+        self.rename_source("first", "renamed-first")
+        approved = {"renamed-first": "first"}
+        for root in (self.fake.library, self.fake.agent_root):
+            extra = root / "first/unique.md"
+            extra.write_text("Unique contribution\n", encoding="utf-8")
+            with self.subTest(root=root), self.assertRaisesRegex(manager.PackageError, "edits preserved"):
+                self.preflight(approved)
+            self.assertEqual(extra.read_text(encoding="utf-8"), "Unique contribution\n")
+            extra.unlink()
+
+        agent_conflict = self.fake.agent_root / "renamed-first"
+        agent_conflict.mkdir()
+        with self.assertRaisesRegex(manager.PackageError, "Unmanaged Agent"):
+            self.preflight(approved)
+        self.assertTrue(agent_conflict.is_dir())
+        agent_conflict.rmdir()
+
+        library_conflict = self.fake.library / "renamed-first"
+        library_conflict.mkdir()
+        with self.assertRaisesRegex(manager.PackageError, "Unmanaged library"):
+            self.preflight(approved)
+        self.assertTrue(library_conflict.is_dir())
+        self.fake.records.append(dict(self.fake.record("first"), id="different-id",
+                                      name="renamed-first", path=str(library_conflict)))
+        with self.assertRaisesRegex(manager.PackageError, "Ambiguous.*directory"):
+            self.preflight(approved)
 
     def change_source(self):
         (self.source / "skills/first/references/guide.md").unlink()
@@ -188,9 +253,9 @@ class ManagerChecks(PackageFixture):
         target = self.fake.agent_root / "first"
         shutil.rmtree(target)
         link_directory(self.fake.library / "first", target)
-        self.fake.record("improve-workflow")["deployed_to"] = []
+        self.fake.record("skill-package-ops")["deployed_to"] = []
         result = self.confirm(self.preflight())
-        self.assertEqual(result["deployments"]["improve-workflow"], [])
+        self.assertEqual(result["deployments"]["skill-package-ops"], [])
 
     def test_nested_link_cannot_escape_resource_tree(self):
         link_directory(self.source / "skills/first", self.fake.library / "first/escape")

@@ -8,10 +8,8 @@
 
 - [软件更新](skills/software-updates/SKILL.md)：检查本机软件与项目依赖，按已选范围更新，完成验收、入口迁移和残留清理。具体服务规则引用各自 README。
 - [setup-solo-workflow](skills/setup-solo-workflow/SKILL.md)：接入、修复项目绑定及获批的专项文档迁移。
-- [implement-solo-spec](skills/implement-solo-spec/SKILL.md)：显式启动或接续实施。普通任务读取项目已采用的工作规则，不必先建规格或拆票；复杂统筹按采用授权触发。
 - [setup 布置模板](skills/setup-solo-workflow/templates/README.md)：由 setup 按实际项目选用；宿主共同规则包含跨场景委派核参，模板不是日常入口。
-- [improve-workflow](skills/improve-workflow/SKILL.md)：按真实证据复盘；获准个人包维护才验证和保存候选，按权限使用 Git 与 Skills Manager，只读分析止于结论。
-
+- [skill-package-ops](skills/skill-package-ops/SKILL.md) 用于维护和分发 My-Skills，并按需评估跨宿主能力与固定版本的技能行为。通过显式点名调用。
 - [project-handoff](skills/project-handoff/SKILL.md)：个人维护的交接保存与提醒；完整资源和计数器同源维护，上游来源及许可见技能维护页。
 
 本项目的资料与运行产物按[项目资源规则](docs/guides/workspace-lifecycle.md)处理；其他项目按各自已采用正文运行。新项目接入或获批布局迁移时，setup 才使用目录设计方法选定适用规则并布置。

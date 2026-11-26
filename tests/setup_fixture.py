@@ -60,9 +60,6 @@ def prepare(root, skill):
         raise ValueError("Use a fresh evaluation root; existing materials are preserved")
     root.mkdir(parents=True)
     skill = Path(skill).resolve()
-    package = skill.parents[2]
-    maintenance = skill.parent / "references/document-maintenance.md"
-    implement = package / "skills/implement-solo-spec/references"
     state = {"skill": str(skill), "started": time.time(), "cases": {}}
     for name in ("existing", "conflict", "dirty", "repeat"):
         project = root / name
@@ -73,7 +70,6 @@ def prepare(root, skill):
         put(project, "AGENTS.md", "# 项目入口\n票：docs/agents/issues.md；领域：GLOSSARY.md、docs/adr/。\n"
             "现行业务：docs/product.md；当前任务：.scratch/current/spec.md。\n"
             "角色规则：.codebuddy/agents/implementer.md。检查入口：package.json、test/helper.js。\n"
-            "状态角色：needs-triage / needs-info / ready-for-agent / ready-for-human / wontfix。\n"
             "集成分支 main，每实现者独立 worktree，merger 唯一关票并跑全量测试。\n")
         put(project, "docs/agents/issues.md", "本地 Markdown 票放 .scratch/<feature>/issues/，状态由 Status: 行维护。\n")
         put(project, "GLOSSARY.md", "# 词汇表\n批次：一次来单与后续回价的集合。\n")
@@ -91,14 +87,15 @@ def prepare(root, skill):
         put(project, ".codebuddy/agents/implementer.md", role)
         if name == "repeat":
             with (project / "AGENTS.md").open("a", encoding="utf-8") as stream:
-                stream.write("生成/修改文档及任务收尾遵守项目已采用规则；项目绑定见 docs/agents/workflow.md。\n"
-                             f"普通授权任务按本项目已采用工作规则实施；任何创建子代理前遵守宿主委派核参要求；明确采用跨批统筹时读 [统筹方法]({(implement / 'coordination.md').as_posix()})。\n"
-                             "新会话仅定位本次需要的规则及来源，不自动同步；复盘个人方法用 improve-workflow。\n")
+                stream.write("开发验证与采用来源见 [项目绑定](docs/agents/workflow.md)。\n"
+                             "查票、出票、更新状态与依赖时读 [票库规则](docs/agents/issues.md)。\n")
             put(project, "docs/agents/workflow.md", "# 项目绑定\n现行业务 docs/product.md 原地维护；effort 在 .scratch/<feature>/spec.md 与 issues/，引用业务。\n"
                 "历史 .scratch/old/ 保留；票协议见 issues.md；领域见根词汇表与 adr/。\n"
                 "实现者同步相关活资料，主 Agent 整合共有入口，merger 唯一关票，全量测试 veto 保留。\n"
-                "测试命令回 package.json；test/helper.js 用独立临时 DB、localhost 随机端口并停止自己的子进程。\n"
-                "无应用浏览器回归、未接钩子/CI；按未来实际范围补。文档变更定向核链接与差异。\n"
+                "宿主的 t3-pstack 会话 hook 生效时自动进入 poteto-mode。\n"
+                "真实入口验证沿 package.json 的现有检查；test/helper.js 用独立临时 DB、localhost 随机端口并停止自己的子进程。\n"
+                "缺少可复用验证入口且已获准补建时，用 t3-pstack:create-verification-skill。\n"
+                "无应用浏览器回归或项目 CI。文档变更定向核链接与差异。\n"
                 "待办只记引用、状态和下一步；各阶段内容真实产生时创建，验收完成且无未决才封存 effort，活需求保留。\n"
                 "接入不授权产品实施/提交/推送/生产操作；保存与临时现场处置按个人维护方法。\n")
         git(project, "add", ".")

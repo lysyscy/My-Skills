@@ -17,7 +17,7 @@ project/
 ├── tools/                            # 可复用的开发、验证及维护脚本
 ├── ops/                              # 部署、服务起停、迁移及恢复入口
 ├── docs/
-│   ├── agents/                       # workflow、issue-tracker、domain及必要triage-labels
+│   ├── agents/                       # workflow、issue-tracker、domain 按需采用
 │   ├── requirements.md              # 当前需求；过大时拆同名目录
 │   ├── architecture.md              # 当前结构；过大时拆同名目录
 │   ├── status.md                    # 确有跨任务状态/交接需要才建立
@@ -159,7 +159,7 @@ quotation-notes/
     └── reference/source-format.md
 ```
 
-它沿用相同现行路径，但没有应用部署、前后端、浏览器回归、空 ADR、空 tickets 或空 triage 文件。日常任务验收是来源对应、唯一来源未被反向覆盖、派生一致性及文件可读性；不启动无关应用测试。只有多步改造或需要接续时才建立 effort 资料。
+它沿用相同现行路径，按现有资料和派生表布置入口。日常任务验收是来源对应、唯一来源未被反向覆盖、派生一致性及文件可读性。只有多步改造或需要接续时才建立 effort 资料。
 
 ### 5.7 项目例外的边界
 

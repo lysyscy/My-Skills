@@ -20,6 +20,7 @@ from urllib.request import Request, urlopen
 
 
 FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---(?:\r?\n|$)", re.S)
+SKILL_NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 SKILL_FIELDS = {
     "name", "description", "license", "allowed-tools", "metadata", "compatibility",
     "disable-model-invocation", "user-invocable", "argument-hint",
@@ -232,7 +233,7 @@ def validate_skill_structure(directory):
 
     name = fields.get("name")
     if (not isinstance(name, str) or len(name) > 64
-            or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name)):
+            or not SKILL_NAME.fullmatch(name)):
         raise ValueError("SKILL.md name must be 1–64 lowercase ASCII letters, digits and single interior hyphens")
     if name != directory.name:
         raise ValueError(f"SKILL.md name {name!r} must match the skill folder {directory.name!r}")
@@ -386,6 +387,15 @@ class Package:
         for name in self.policy["upstream_skills"]:
             if not name or name in {".", ".."} or "/" in name or "\\" in name:
                 raise PackageError("Upstream names must be installed skill directory names")
+        self.previous_skill_directories = self.policy.get("previous_skill_directories", {})
+        if not isinstance(self.previous_skill_directories, dict):
+            raise PackageError("Previous skill directories must map current names to old names")
+        previous_names = list(self.previous_skill_directories.values())
+        if (any(not isinstance(name, str) or not SKILL_NAME.fullmatch(name)
+                for name in [*self.previous_skill_directories, *previous_names])
+                or len(set(previous_names)) != len(previous_names)
+                or set(previous_names).intersection(self.previous_skill_directories)):
+            raise PackageError("Previous skill directories must be distinct skill names")
         self.skills_root = contained(self.root, self.policy["skills_root"])
         if self.skills_root == self.root or self.skills_root.name == ".git":
             raise PackageError("Skills root must be a package subdirectory")
@@ -402,6 +412,8 @@ class Package:
                 raise PackageError(f"Skill escapes managed root: {directory.name}")
             if directory.name in self.policy["upstream_skills"]:
                 raise PackageError(f"Upstream skill cannot become managed: {directory.name}")
+            if directory.name in self.previous_skill_directories.values():
+                raise PackageError(f"Renamed skill still exists at its previous source directory: {directory.name}")
             if check_frontmatter:
                 content = (directory / "SKILL.md").read_text(encoding="utf-8")
                 match = FRONTMATTER.match(content)
@@ -481,8 +493,7 @@ class Package:
         return any(self.committed_fingerprint(revision, name) == actual
                    for revision in git(self.root, "rev-list", "HEAD", "--", prefix).splitlines())
 
-    def manager_source(self, record, library, metadata_root, name):
-        entry = library / name
+    def manager_source(self, record, entry, metadata_root, name):
         if not record or Path(record["path"]).resolve() != entry.resolve() or linked(entry):
             raise PackageError(f"Skills Manager does not own the expected library entry: {name}")
         reference = record.get("source_ref", "").rstrip("/").removesuffix(".git")
@@ -492,7 +503,7 @@ class Package:
             raise PackageError(f"Skills Manager source differs from the maintenance source: {name}")
         metadata = read_json(contained(metadata_root, record["id"] + ".json"))
         source = metadata.get("source", {})
-        if (metadata.get("skill_id") != record["id"] or metadata.get("path") != name
+        if (metadata.get("skill_id") != record["id"] or metadata.get("path") != entry.name
                 or source.get("type") != record.get("source_type")
                 or source.get("ref") != record.get("source_ref")):
             raise PackageError(f"Skills Manager source metadata disagrees with the registry: {name}")
@@ -519,19 +530,29 @@ class Package:
         agents = {agent["key"]: agent for agent in manager_json(cli, "agents", "list")}
         return library, Path(repository["metadata_dir"]).resolve() / "skills", records, agents
 
-    @staticmethod
-    def manager_record(records, library, name, *, allow_previous_name=False):
-        expected = (library / name).resolve()
+    def manager_entry(self, records, library, name, *, allow_previous_name=False):
+        directories = {name}
+        if previous := self.previous_skill_directories.get(name):
+            directories.add(previous)
+        expected_paths = {(library / directory).resolve() for directory in directories}
         matching = [record for record in records.values()
-                    if isinstance(record.get('path'), str) and Path(record['path']).resolve() == expected]
+                    if record["name"] in directories or (isinstance(record.get("path"), str)
+                        and Path(record["path"]).resolve() in expected_paths)]
         if len(matching) > 1:
-            raise PackageError(f"Ambiguous Manager records for directory: {name}")
-        named = records.get(name)
-        if named is not None and matching and named is not matching[0]:
-            raise PackageError(f"Manager name and directory identify different skills: {name}")
-        if named is not None:
-            return named
-        return matching[0] if allow_previous_name and matching else None
+            raise PackageError(f"Ambiguous Manager records for name or directory: {name}")
+        record = matching[0] if matching else None
+        directory = Path(record["path"]).name if record else name
+        if directory not in directories:
+            raise PackageError(f"Skills Manager does not own the expected library entry: {name}")
+        for unused in directories - ({directory} if record else set()):
+            if (library / unused).exists() or linked(library / unused):
+                raise PackageError(f"Unmanaged library entry preserved: {unused}")
+        if record and record["name"] != name:
+            if not allow_previous_name:
+                raise PackageError(f"Skills Manager has not registered the new name: {name}")
+            if directory != name and record["name"] != directory:
+                raise PackageError(f"Unexpected Manager name for previous directory: {directory}")
+        return record, library / directory
 
     @staticmethod
     def selection(record):
@@ -541,43 +562,49 @@ class Package:
         return {"id": record["id"], **{key: sorted(record.get(key, []))
                 for key in ("tags", "preset_ids", "deployed_to")}}
 
-    @staticmethod
-    def deployment(agents, key, name, library):
+    def deployment(self, agents, key, name, entry):
         if key not in agents or not agents[key].get("skills_dir"):
             raise PackageError(f"Unknown managed deployment agent: {key}")
-        target = Path(agents[key]["skills_dir"]) / name
-        if linked(target) and target.resolve() != (library / name).resolve():
+        agent_root = Path(agents[key]["skills_dir"])
+        target = agent_root / entry.name
+        if linked(target) and target.resolve() != entry.resolve():
             raise PackageError(f"Foreign managed deployment link preserved: {key}/{name}")
+        alternate = name if entry.name != name else self.previous_skill_directories.get(name)
+        if alternate and ((agent_root / alternate).exists() or linked(agent_root / alternate)):
+            raise PackageError(f"Unmanaged Agent entry preserved: {key}/{alternate}")
         return target
 
     def preflight(self, cli, revision, allowed_renames=None):
         self.require_revision(revision)
         library, metadata_root, records, agents = self.manager_context(cli)
         allowed_renames = allowed_renames or {}
-        selections, renamed_skills = {}, {}
+        selections, renamed_skills, library_aliases = {}, {}, {}
         for name in self.discover():
-            record = self.manager_record(records, library, name, allow_previous_name=True)
+            record, entry = self.manager_entry(records, library, name, allow_previous_name=True)
             if record is None:
-                if (library / name).exists() or linked(library / name):
-                    raise PackageError(f"Unmanaged library entry preserved: {name}")
                 selections[name] = {"id": None, "tags": [], "preset_ids": [], "deployed_to": []}
                 continue
-            self.manager_source(record, library, metadata_root, name)
-            if not self.known_skill_version(name, directory_fingerprint(library / name)):
-                raise PackageError(f"Unknown library edits preserved: {name}")
             if record['name'] != name:
                 if allowed_renames.get(name) != record['name']:
                     raise PackageError(f"Skill rename needs explicit approval: {record['name']} -> {name}")
                 renamed_skills[name] = record['name']
+            if entry.name != name:
+                library_aliases[name] = entry.name
+            source_name = entry.name if record["name"] == entry.name else name
+            self.manager_source(record, entry, metadata_root, source_name)
+            if not self.known_skill_version(source_name, directory_fingerprint(entry)):
+                raise PackageError(f"Unknown library edits preserved: {name}")
             selections[name] = self.selection(record)
             for key in selections[name]["deployed_to"]:
-                target = self.deployment(agents, key, name, library)
-                if (target.exists() or linked(target)) and not self.known_skill_version(name, directory_fingerprint(target)):
+                target = self.deployment(agents, key, name, entry)
+                if (target.exists() or linked(target)) and not self.known_skill_version(
+                        source_name, directory_fingerprint(target)):
                     raise PackageError(f"Unknown Agent edits preserved: {key}/{name}")
         if set(allowed_renames) != set(renamed_skills):
             raise PackageError('Approved rename does not match the current Manager state')
         return {"status": "preflight_ok", "revision": revision, "source": str(self.root),
-                "library": str(library), "skills": selections, "renamed_skills": renamed_skills}
+                "library": str(library), "skills": selections, "renamed_skills": renamed_skills,
+                "library_aliases": library_aliases}
 
     def confirm_install(self, cli, revision, plan):
         self.require_revision(revision)
@@ -587,10 +614,17 @@ class Package:
                 or plan.get("source") != str(self.root) or plan.get("library") != str(library)
                 or set(plan.get("skills", {})) != set(names)):
             raise PackageError("Update plan does not match this source, revision, library and skill set")
+        library_aliases = plan.get("library_aliases", {})
+        if (not isinstance(library_aliases, dict)
+                or any(name not in names or directory != self.previous_skill_directories.get(name)
+                       for name, directory in library_aliases.items())):
+            raise PackageError("Invalid library aliases in update plan")
         deployments = {}
         for name in names:
-            record = self.manager_record(records, library, name)
-            self.manager_source(record, library, metadata_root, name)
+            record, entry = self.manager_entry(records, library, name)
+            if entry.name != library_aliases.get(name, name):
+                raise PackageError(f"Manager library directory changed: {name}")
+            self.manager_source(record, entry, metadata_root, name)
             previous, current = plan["skills"][name], self.selection(record)
             if (not isinstance(previous, dict) or set(previous) != {"id", "tags", "preset_ids", "deployed_to"}
                     or (previous["id"] is not None and not isinstance(previous["id"], str))):
@@ -599,15 +633,16 @@ class Package:
             if any(current[key] != value for key, value in previous.items() if key != "id" or value is not None):
                 raise PackageError(f"Identity or deployment choices changed: {name}")
             expected = self.committed_fingerprint(revision, name)
-            if directory_fingerprint(library / name) != expected:
+            if directory_fingerprint(entry) != expected:
                 raise PackageError(f"Manager library differs from the verified revision: {name}")
             deployments[name] = current["deployed_to"]
             for key in deployments[name]:
-                target = self.deployment(agents, key, name, library)
+                target = self.deployment(agents, key, name, entry)
                 if directory_fingerprint(target) != expected:
                     raise PackageError(f"Managed deployment is missing or stale: {key}/{name}")
         return {"status": "installation_verified", "revision": revision, "library": str(library),
-                "deployments": deployments, "scope": "local files; host loading and other devices not checked"}
+                "deployments": deployments, "library_aliases": library_aliases,
+                "scope": "local files; host loading and other devices not checked"}
 
     def confirm_source(self, revision):
         self.require_revision(revision)
@@ -648,13 +683,15 @@ class Package:
         if not remote or remote[0] != head:
             raise PackageError('Manager backup remote does not contain the current snapshot')
         for name in self.discover():
-            if self.committed_fingerprint(head, name, library) != self.committed_fingerprint(revision, name):
+            directory = installation['library_aliases'].get(name, name)
+            if self.committed_fingerprint(head, directory, library) != self.committed_fingerprint(revision, name):
                 raise PackageError(f'Manager backup omits or changes skill resources: {name}')
             relative = (metadata / (records[name]['id'] + '.json')).relative_to(library).as_posix()
             if json.loads(git(library, 'show', f'{head}:{relative}')) != read_json(library / relative):
                 raise PackageError(f'Manager backup source metadata differs: {name}')
         return dict(source, status='distribution_verified', backup_revision=head,
                     deployments=installation['deployments'],
+                    library_aliases=installation['library_aliases'],
                     cross_device_detection='requires_receiver_verification' if portable_revisions else 'needs_calibration_after_restore',
                     receiver_action='After restore, use official Manager update for affected skills, then check; unknown is not up-to-date',
                     scope='published source CI, local deployments, pushed portable backup; other physical devices not checked')
