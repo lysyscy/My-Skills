@@ -6,7 +6,7 @@
 
 当前包结构见 [architecture.md](../architecture.md)；核验实现、规则及清单的权威分别是 tools/、skills/ 和 [skill-package.json](../../skill-package.json)。本轮范围、固定版本、验证及未决项留在任务已有记录；不建立发布状态机。Git common dir 下的固定旧运行按[接续与退役规则](../../skills/skill-package-ops/references/package-operations.md#失败并发与旧运行)保留或退出。
 
-新工程任务使用宿主已加载的 `chhoumann/t3-pstack`。采用版本、`SessionStart` 钩子和实测加载见[本机维护记录](../../../workstation/docs/t3-pstack.md)。
+新工程任务使用宿主已加载的 `chhoumann/t3-pstack`。本机采用的版本、`SessionStart` 钩子和实际加载结果记录在独立的 `workstation` 仓库中，见该仓的 `docs/t3-pstack.md`。
 
 ## 全局指令由 Magpie 管理
 

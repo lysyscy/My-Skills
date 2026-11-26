@@ -85,7 +85,9 @@ class SourceChecks(PackageFixture):
                 if "://" in target or target.startswith("#"):
                     continue
                 relative = target.split("#", 1)[0]
-                self.assertTrue((document.parent / relative).is_file(), f"{document}: {target}")
+                path = (document.parent / relative).resolve()
+                self.assertTrue(path.is_relative_to(ROOT), f"Link outside the repository: {document}: {target}")
+                self.assertTrue(path.is_file(), f"{document}: {target}")
 
     def test_discovers_future_skills_and_protects_upstream(self):
         self.add_skill("future-third")
