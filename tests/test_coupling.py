@@ -2,11 +2,15 @@
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+
+from tools.skill_package import check_coupling
 
 
 TOOL = Path(__file__).resolve().parents[1] / "tools/skill_package.py"
@@ -109,6 +113,23 @@ class CouplingChecks(unittest.TestCase):
             self.write(name, "调用pstack:verify")
         result = self.diagnostics()
         self.assertEqual([item["path"] for item in result["violations"]], sorted(in_scope))
+
+    def test_skips_unreadable_pytest_cache(self):
+        self.write("README.md", "# Project\n")
+        cache = self.write("backend/.pytest_cache/AGENTS.md", "Use Codex.").parent
+        scandir = os.scandir
+
+        def scan(path):
+            if Path(path) == cache:
+                raise PermissionError("fixture unreadable .pytest_cache")
+            return scandir(path)
+
+        with patch("os.scandir", side_effect=scan):
+            result = check_coupling(self.source)
+        self.assertEqual(
+            (result["status"], result["files_checked"], result["violations"]),
+            ("verified", 1, []),
+        )
 
     def test_exempts_only_classified_adapter_and_history_paths(self):
         for name in (

@@ -48,7 +48,9 @@ COUPLING_DOCUMENTS = (
 )
 COUPLING_TOOL_SUFFIXES = {".py", ".js", ".mjs", ".cjs", ".ps1"}
 COUPLING_IGNORED_DIRECTORIES = {
-    ".git", ".artifacts", ".scratch", ".worktrees", ".venv", "__pycache__", "node_modules",
+    ".artifacts", ".cache", ".git", ".mypy_cache", ".nox", ".pytest_cache",
+    ".ruff_cache", ".scratch", ".tox", ".venv", ".worktrees",
+    "__pycache__", "build", "dist", "node_modules", "venv",
 }
 # These paths document concrete adapters, installed software, or historical evidence.
 COUPLING_PATH_OWNERS = {
