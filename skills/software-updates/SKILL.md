@@ -16,7 +16,7 @@ description: 检查本机软件、项目依赖和工具链。用于「检查软�
 
 先用[项目与工具链](references/targets.md)定位项目和消费者，按目标读取 [UniGetUI](references/unigetui.md)、[Hindsight、AstrBot 与受管技能](references/services.md) 的对应分支。项目自己的入口负责兼容性验证、服务加载和发布。
 
-更新 DSH Desktop、DS Bot 或其插件时，从[工作站 DSH 维护入口](file:///D:/dev/tooling/workstation/dsh/README.md)核对受影响的补丁、中文技能菜单和学习卡策略，按对应规程验收。
+更新 DSH Desktop、DS Bot 或其插件时，从[工作站 DSH 维护入口](file:///D:/dev/tooling/workstation/components/dsh/README.md)核对受影响的补丁、中文技能菜单和学习卡策略，按对应规程验收。更新 Hindsight 客户端时，按[工作站 Hindsight 维护入口](file:///D:/dev/tooling/workstation/components/hindsight/README.md)选择 DSH 或共用 staged 安装。
 
 **汇报与记录**。每次检查生成一份可离线打开的本地 HTML 报告。对话交付链接与本批要点。应用结果用 Markdown 表格逐项列实际版本、适配和待办。交付前按[汇报格式](references/reporting.md)核列。版本状态与批次记录见[状态与记录](references/status.md)。本技能唯一维护源为 `D:\dev\tooling\My-Skills\skills\software-updates`；获准回写时修改该源的记录，再按 My-Skills 发布流程同步。中央库和各 harness 安装副本供读取，不作为另一编辑源。项目当前规则和服务实况仍由各自项目持有。
 
