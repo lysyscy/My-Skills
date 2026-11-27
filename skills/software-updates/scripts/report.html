@@ -14,17 +14,30 @@
   header { background:var(--white); border-bottom:1px solid var(--line); }
   .masthead, .layout { max-width:88rem; margin:auto; padding-inline:clamp(1rem,4vw,3.5rem); }
   .masthead { padding-block:2.4rem 1.75rem; }
-  h1,h2,p { margin:0; }
+  h1,h2,h3,p { margin:0; }
   h1 { font-size:2.25rem; letter-spacing:-.03em; line-height:1.2; }
   h2 { font-size:1.25rem; line-height:1.4; }
+  h3 { font-size:1.05rem; line-height:1.4; }
   .date { margin-top:.65rem; color:var(--muted); }
   .counts { display:flex; flex-wrap:wrap; gap:.45rem 1.35rem; margin-top:1rem; color:var(--muted); font-size:.9rem; }
   .counts strong { color:var(--ink); font-variant-numeric:tabular-nums; }
-  .layout { display:grid; grid-template-columns:10rem minmax(0,1fr); gap:2rem; padding-block:1.65rem 2.5rem; }
-  nav { position:sticky; top:1.25rem; align-self:start; display:grid; gap:.25rem; }
+  .layout { display:grid; grid-template-columns:10rem minmax(0,1fr); grid-template-rows:auto 1fr; column-gap:2rem; padding-block:1.65rem 2.5rem; }
+  nav { grid-column:1; grid-row:1 / span 2; position:sticky; top:1.25rem; align-self:start; display:grid; gap:.25rem; }
   nav a { padding:.45rem .6rem; color:var(--muted); border-radius:.35rem; text-decoration:none; font-size:.9rem; }
   nav a:hover { background:var(--soft); color:var(--ink); }
-  section + section, .other { margin-top:1.6rem; }
+  .decision-summary, .report-content { grid-column:2; min-width:0; }
+  .decision-summary { margin-bottom:1.15rem; }
+  .no-decisions { padding:.65rem 1rem; border:1px solid var(--line); border-radius:.6rem; background:var(--soft); color:var(--accent); }
+  .decision-scope { margin-top:.35rem; color:var(--muted); }
+  .user-action { margin-top:.65rem; padding:.8rem 1rem; border:1px solid var(--line); border-radius:.6rem; background:var(--white); overflow-wrap:anywhere; }
+  .user-action .group-title { flex-wrap:wrap; gap:.25rem 1rem; }
+  .user-action a, .waiting { font-size:.9rem; }
+  .waiting { display:flex; flex-wrap:wrap; column-gap:.6rem; color:var(--muted); }
+  .waiting strong { color:var(--ink); }
+  .decision-options { margin:.5rem 0 .75rem; padding-inline-start:1.25rem; }
+  .decision-options li + li { margin-top:.4rem; }
+  .decision-options .badge { margin-inline-start:.5rem; }
+  .report-content > * + * { margin-top:1.6rem; }
   .group-title { display:flex; justify-content:space-between; align-items:baseline; gap:1rem; margin-bottom:.5rem; }
   .group-title span { color:var(--muted); font-size:.85rem; white-space:nowrap; }
   .table-wrap { overflow:auto; container-type:inline-size; background:var(--white); border:1px solid var(--line); border-radius:.6rem; }
@@ -38,11 +51,16 @@
   th:nth-child(6) { width:13%; }
   tbody:last-child tr:last-child td,tbody:last-child tr:last-child th { border-bottom:0; }
   tbody tr:first-child:hover > * { background:#f3f8f3; }
+  tr.candidate-row:target > * { background:var(--soft); }
+  .candidate-row { scroll-margin-top:1rem; }
   tbody th { font-weight:680; }
   code,.version { font: .86rem/1.5 "IBM Plex Mono",Consolas,monospace; font-variant-numeric:tabular-nums; }
   .version.target { color:var(--accent); font-weight:700; }
   .badge { display:inline-block; margin-top:.2rem; padding:.08rem .4rem; background:var(--soft); border-radius:.25rem; color:#225841; font-size:.75rem; }
   .badge.warning { background:var(--warn-bg); color:var(--warn); }
+  .action-list { margin:0; padding-inline-start:1rem; }
+  .action-list li + li { margin-top:.4rem; }
+  .action-time { color:var(--muted); font-size:.8rem; font-weight:650; }
   .detail-button { display:block; border:0; padding:.14rem 0; background:transparent; color:var(--accent); cursor:pointer; min-height:1.5rem; font:inherit; font-size:.8rem; text-decoration:underline; text-underline-offset:.18em; }
   .detail td { background:#f7faf7; padding:.8rem 1rem 1rem; }
   dl { display:grid; grid-template-columns:6rem minmax(0,1fr); gap:.35rem .8rem; margin:0; }
@@ -51,10 +69,13 @@
   .other ul { margin:.65rem 0 0; padding-left:1.2rem; }
   .other li { margin:.38rem 0; }
   .other summary { cursor:pointer; font-weight:650; }
+  .followup + .followup { margin-top:1rem; }
+  .followup h3 { margin-top:.6rem; }
+  .followup details { margin-top:.4rem; }
   .paused { display:flex; flex-wrap:wrap; align-items:baseline; gap:.3rem .8rem; }
   .paused h2 { font-size:.85rem; }
   .paused p { font-size:.85rem; color:var(--muted); }
-  @media (max-width:55rem) { .layout { grid-template-columns:minmax(0,1fr); gap:1.2rem; } nav { position:static; display:flex; flex-wrap:wrap; } nav a { padding:.25rem .45rem; } .masthead { padding-top:1.6rem; } }
+  @media (max-width:55rem) { .layout { display:block; } nav { position:static; display:flex; flex-wrap:wrap; margin-bottom:1.2rem; } nav a { padding:.25rem .45rem; } .masthead { padding-top:1.6rem; } }
   @container (width < 50rem) {
     table, tbody { display:block; min-width:0; }
     thead { display:none; }
@@ -75,18 +96,25 @@
     <div class="counts" id="counts"></div>
   </div>
 </header>
-<div class="layout">
+<main class="layout" id="report">
+  <section class="decision-summary" id="decisions" hidden></section>
   <nav id="groups" aria-label="报告分组"></nav>
-  <main id="report"></main>
-</div>
+  <div class="report-content" id="report-content"></div>
+</main>
 <noscript><p>请启用 JavaScript 查看报告。</p></noscript>
 <script id="report-data" type="application/json">@@REPORT_DATA@@</script>
 <script>
   'use strict';
   const data = JSON.parse(document.getElementById('report-data').textContent);
-  const report = document.getElementById('report');
+  const report = document.getElementById('report-content');
   const navigation = document.getElementById('groups');
+  const modern = data.schema === 2;
   const allRows = data.groups.flatMap(group => group.items);
+  const columns = [
+    '编号', '目标', '当前版本', '候选版本',
+    ...(modern ? ['你留意一下', '我来处理'] : ['风险', '建议动作']),
+  ];
+  const timingLabels = { now: '现在能做', 'after-authorization': '获授权后再做' };
 
   function add(parent, tag, value, className) {
     const node = document.createElement(tag);
@@ -96,19 +124,108 @@
     return node;
   }
 
+  function renderActions(parent, actions, field) {
+    const list = add(parent, 'ul', '', 'action-list');
+    for (const action of actions) {
+      const entry = add(list, 'li');
+      add(entry, 'span', timingLabels[action.when], 'action-time');
+      add(entry, 'p', action[field]);
+    }
+  }
+
+  function addUserAction(parent, entry) {
+    const block = add(parent, 'article', '', 'user-action');
+    const title = add(block, 'div', '', 'group-title');
+    add(title, 'h3', `${entry.target} · ${entry.action}`);
+    if (entry.candidateId) {
+      add(title, 'a', `查看候选 ${entry.candidateId}`).href = `#candidate-${entry.candidateId}`;
+    }
+    return block;
+  }
+
+  function addWaiting(parent, label, waiting) {
+    const line = add(parent, 'p', '', 'waiting');
+    add(line, 'strong', label);
+    add(line, 'span', waiting);
+  }
+
+  function renderDecisions(section, decisions) {
+    section.hidden = false;
+    if (!decisions.length) {
+      section.classList.add('no-decisions');
+      add(section, 'h2', '本批无需你决定');
+      return;
+    }
+    add(section, 'h2', `需要你决定 · ${decisions.length} 项`);
+    add(section, 'p', '只有列出的操作会等你决定。其他已获授权、能独立开展的工作照常进行。', 'decision-scope');
+    for (const decision of decisions) {
+      const block = addUserAction(section, decision);
+      const options = add(block, 'ul', '', 'decision-options');
+      decision.options.forEach((option, index) => {
+        const entry = add(options, 'li');
+        add(entry, 'strong', option.label);
+        if (index === decision.recommendation) add(entry, 'span', '推荐', 'badge');
+        add(entry, 'p', option.impact);
+      });
+      addWaiting(block, '等你决定后再做', decision.waiting);
+    }
+  }
+
+  function addReportBlock(id, title, tag = 'section', className = 'other') {
+    add(navigation, 'a', title).href = `#${id}`;
+    const block = add(report, tag, '', className);
+    block.id = id;
+    return block;
+  }
+
+  function renderOperations(operations) {
+    const title = '需要你操作';
+    const section = addReportBlock('operations', title, 'section', 'operations');
+    add(section, 'h2', title);
+    for (const operation of operations) {
+      const block = addUserAction(section, operation);
+      addWaiting(block, '完成后继续', operation.waiting);
+    }
+  }
+
+  function renderFollowups(followups) {
+    const title = '我来处理';
+    const section = addReportBlock('followups', title);
+    add(section, 'h2', title);
+    for (const followup of followups) {
+      const block = add(section, 'article', '', 'followup');
+      add(block, 'h3', followup.target);
+      add(block, 'p', followup.status);
+      renderActions(block, followup.actions, 'work');
+      const verification = add(block, 'details');
+      add(verification, 'summary', '核对办法');
+      renderActions(verification, followup.actions, 'verify');
+    }
+  }
+
+  function renderList(id, title, values, collapsed = false) {
+    if (!values.length) return;
+    const block = addReportBlock(id, title, collapsed ? 'details' : 'section');
+    add(block, collapsed ? 'summary' : 'h2', `${title} · ${values.length} 项`);
+    const entries = add(block, 'ul');
+    values.forEach(value => add(entries, 'li', value));
+  }
+
   function renderRow(table, item) {
     const body = add(table, 'tbody');
-    const row = add(body, 'tr');
+    const row = add(body, 'tr', '', 'candidate-row');
+    row.id = `candidate-${item.id}`;
     add(add(row, 'td'), 'code', item.id);
     const name = add(row, 'th', item.target);
     name.scope = 'row';
-    add(row, 'td', item.current, 'version').dataset.label = '当前版本';
-    add(row, 'td', item.candidate, 'version target').dataset.label = '候选版本';
-    const risk = add(row, 'td', item.risk);
-    risk.dataset.label = '风险';
-    if (item.safe) add(add(risk, 'div'), 'span', '风险可控', 'badge');
-    const action = add(row, 'td', item.action);
-    action.dataset.label = '建议动作';
+    add(row, 'td', item.current, 'version').dataset.label = columns[2];
+    add(row, 'td', item.candidate, 'version target').dataset.label = columns[3];
+    const notice = add(row, 'td', modern ? item.notice ?? '—' : item.risk);
+    notice.dataset.label = columns[4];
+    if (!modern && item.safe) add(add(notice, 'div'), 'span', '风险可控', 'badge');
+    const action = add(row, 'td', modern ? '' : item.action);
+    action.dataset.label = columns[5];
+    if (modern) renderActions(action, item.actions, 'work');
     if (!item.ready) add(add(action, 'div'), 'span', '未就绪', 'badge warning');
     const button = add(action, 'button', '详情', 'detail-button');
     button.type = 'button';
@@ -119,11 +236,15 @@
     detail.hidden = true;
     button.setAttribute('aria-controls', detail.id);
     const cell = add(detail, 'td');
-    cell.colSpan = 6;
+    cell.colSpan = columns.length;
     const fields = add(cell, 'dl');
     for (const [label, value] of Object.entries(item.details)) {
       add(fields, 'dt', label);
       add(fields, 'dd', value);
+    }
+    if (modern) {
+      add(fields, 'dt', '核对办法');
+      renderActions(add(fields, 'dd'), item.actions, 'verify');
     }
     if (item.source) {
       add(fields, 'dt', '上游链接');
@@ -143,15 +264,19 @@
   const counts = document.getElementById('counts');
   const metrics = [
     [allRows.filter(row => row.ready).length, '可进入验证'],
-    [allRows.filter(row => row.safe).length, '风险可控候选'],
     [allRows.filter(row => !row.ready).length, '未就绪候选'],
-    [data.pending.length, '待确认事项'],
     [data.current.length, '无更新记录'],
   ];
+  if (!modern) metrics.splice(1, 0, [allRows.filter(row => row.safe).length, '风险可控候选']);
   for (const [count, label] of metrics) {
     const part = add(counts, 'span');
     add(part, 'strong', String(count));
     part.append(` ${label}`);
+  }
+
+  if (modern) {
+    renderDecisions(document.getElementById('decisions'), data.decisions);
+    if (data.operations.length) renderOperations(data.operations);
   }
 
   data.groups.forEach((group, index) => {
@@ -169,19 +294,17 @@
     const table = add(wrapper, 'table');
     table.setAttribute('role', 'table');
     const heading = add(add(table, 'thead'), 'tr');
-    for (const label of ['编号', '目标', '当前版本', '候选版本', '风险', '建议动作']) add(heading, 'th', label).scope = 'col';
+    for (const label of columns) add(heading, 'th', label).scope = 'col';
     group.items.forEach(item => renderRow(table, item));
   });
 
-  for (const [id, title, list, collapsed] of [['pending', '待确认事项', data.pending, false], ['current', '确认无更新', data.current, true]]) {
-    if (!list.length) continue;
-    add(navigation, 'a', title).href = `#${id}`;
-    const block = add(report, collapsed ? 'details' : 'section', '', 'other');
-    block.id = id;
-    add(block, collapsed ? 'summary' : 'h2', `${title} · ${list.length} 项`);
-    const entries = add(block, 'ul');
-    list.forEach(value => add(entries, 'li', value));
+  if (modern) {
+    renderList('notices', '你留意一下', data.notices);
+    if (data.followups.length) renderFollowups(data.followups);
+  } else {
+    renderList('pending', '旧批次备注', data.pending);
   }
+  renderList('current', '确认无更新', data.current, true);
 
   if (data.paused.length) {
     const paused = add(report, 'aside', '', 'other paused');
