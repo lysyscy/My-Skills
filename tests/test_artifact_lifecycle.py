@@ -62,7 +62,8 @@ class LifecycleTests(unittest.TestCase):
         self.add(); m.close(self.root,'one',now=self.at(0),deadline=self.at(90))
         self.assertEqual(self.status(60),'retained'); self.assertEqual(self.status(90),'due')
     def test_lease_blocks_sweep(self):
-        import subprocess,sys
+        import subprocess
+        import sys
         with m.lock(self.root):
             p=subprocess.run([sys.executable,str(SOURCE),'sweep','--root',str(self.root)],capture_output=True,text=True,encoding='utf-8')
         self.assertNotEqual(p.returncode,0)

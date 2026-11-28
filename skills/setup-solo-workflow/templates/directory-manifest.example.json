@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "hard_protected": [".git", ".artifacts", "data"],
+  "directories": [
+    {
+      "path": ".git", "owner": "Git", "class": "metadata", "git_policy": "local",
+      "manager": "git", "retention": "按 Git 规则保留", "exit_condition": "由 Git 维护",
+      "apply_eligible": false
+    },
+    {
+      "path": ".agents", "owner": "项目维护者", "class": "source", "git_policy": "tracked",
+      "manager": "none", "retention": "随在用技能保留", "exit_condition": "项目验证入口退役后移除",
+      "apply_eligible": false
+    },
+    {
+      "path": "docs", "owner": "项目维护者", "class": "source", "git_policy": "tracked",
+      "manager": "none", "retention": "随项目规则保留", "exit_condition": "确认无消费者后移除",
+      "apply_eligible": false
+    },
+    {
+      "path": "tools", "owner": "工程维护者", "class": "source", "git_policy": "tracked",
+      "manager": "none", "retention": "随在用工具保留", "exit_condition": "更新消费者后退役工具",
+      "apply_eligible": false
+    },
+    {
+      "path": ".artifacts", "owner": "运行负责人", "class": "artifact", "git_policy": "ignored",
+      "manager": "项目产物运行时", "retention": "随已登记用途保留", "exit_condition": "由运行时结项",
+      "apply_eligible": false
+    },
+    {
+      "path": "retired-output", "owner": "none", "class": "residue", "git_policy": "ignored",
+      "manager": "none", "retention": "无", "exit_condition": "仅空目录可以移除",
+      "apply_eligible": true
+    }
+  ]
+}

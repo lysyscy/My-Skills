@@ -10,6 +10,7 @@ from bisect import bisect_right
 import hashlib
 from html import unescape
 from io import StringIO
+from itertools import pairwise
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -211,7 +212,7 @@ def read_yaml_mapping(source, filename, first_line=1):
         if style == ">" and content:
             parts = [content[0]]
             previous_nonblank = content[0]
-            for before, after in zip(content, content[1:]):
+            for before, after in pairwise(content):
                 separator = "\n"
                 if (previous_nonblank and after
                         and not previous_nonblank.startswith((" ", "\t"))

@@ -1,7 +1,6 @@
 """Task closure reports actual files and consumers without runtime assumptions."""
 import importlib.util
 import json
-import os
 from pathlib import Path
 import subprocess
 import sys

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "git": {
+    "base": "main",
+    "remote": "origin",
+    "worktree_root": "../worktrees/example-project"
+  },
+  "links": {
+    "exclude_sources": {}
+  },
+  "entry": {
+    "status_path": "docs/status.md",
+    "view_start": "<!-- BEGIN:DERIVED_ACTIVE_WORK -->",
+    "view_end": "<!-- END:DERIVED_ACTIVE_WORK -->",
+    "active_heading": "## 活动任务",
+    "worktree_heading": "## 工作树状态",
+    "labels": {
+      "status": "状态",
+      "acceptance": "待验收",
+      "next": "下一步",
+      "none": "暂无"
+    }
+  },
+  "tasks": {
+    "glob": "docs/tasks/**/*.md",
+    "id_pattern": "[a-z][a-z0-9]*(?:-[a-z0-9]+)+",
+    "kinds": ["ticket", "plan"],
+    "statuses": ["open", "blocked", "done"],
+    "finished_states": ["done"]
+  },
+  "closeout": {
+    "worktrees": [],
+    "preview_registries": [],
+    "inspect_windows_processes": false
+  }
+}

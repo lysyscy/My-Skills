@@ -1,6 +1,5 @@
 import importlib.util
 import json
-import os
 from pathlib import Path
 import subprocess
 import sys
@@ -201,7 +200,7 @@ class RuntimeDeploymentTests(unittest.TestCase):
         self.revision = 'a' * 40
 
     def test_dry_run_and_idempotent_deployment_work_without_personal_install(self):
-        plan = installer.deploy(self.project, self.revision)
+        self.assertEqual(installer.deploy(self.project, self.revision)['status'], 'planned')
         self.assertEqual(list(self.project.iterdir()), [])
         result = installer.deploy(self.project, self.revision, apply=True)
         self.assertEqual(result['status'], 'deployed')
@@ -225,7 +224,7 @@ class RuntimeDeploymentTests(unittest.TestCase):
 
     def test_upgrade_adds_adapter_but_protects_unowned_adapter(self):
         with patch.object(installer, 'SOURCES', (installer.SOURCE,)):
-            result = installer.deploy(self.project, self.revision, apply=True)
+            installer.deploy(self.project, self.revision, apply=True)
         target = self.project / installer.RELATIVE / 'impeccable_artifacts.py'
         target.write_text('unique', encoding='utf-8')
         with self.assertRaisesRegex(ValueError, 'not owned'):

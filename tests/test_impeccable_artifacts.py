@@ -1,5 +1,4 @@
-import importlib.util
-import json
+from importlib import import_module
 import os
 from pathlib import Path
 import subprocess
@@ -11,7 +10,7 @@ from unittest.mock import patch
 
 SCRIPTS = Path(__file__).resolve().parents[1] / 'skills/setup-solo-workflow/scripts'
 sys.path.insert(0, str(SCRIPTS))
-import impeccable_artifacts as adapter
+adapter = import_module('impeccable_artifacts')
 life = adapter.life
 
 class ImpeccableArtifactsTests(unittest.TestCase):

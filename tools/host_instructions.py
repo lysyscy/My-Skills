@@ -9,7 +9,7 @@ import sys
 def compose(common: str, adapters: str, host: str) -> str:
     sections = re.split(r"(?m)^<!-- host:([a-z][a-z0-9-]*) -->[ \t]*\r?$", adapters)
     by_host = {}
-    for name, body in zip(sections[1::2], sections[2::2]):
+    for name, body in zip(sections[1::2], sections[2::2], strict=True):
         if name in by_host:
             raise ValueError(f"Duplicate host adapter: {name}")
         by_host[name] = body.strip()

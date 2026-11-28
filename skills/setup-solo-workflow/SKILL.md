@@ -15,6 +15,8 @@ disable-model-invocation: true
 5. 准备项目规则并核对宿主能读取项目入口，再切换项目入口。接入产物管理时，按[产物接入](references/artifact-lifecycle.md#setup部署与项目默认)部署固定版本配套工具到项目，日常命令使用项目已部署实现，核内容、来源及重复部署无变化。核链接、实际加载和相关检查。活动任务保持原基线，切换需在安全边界明确采用点。宿主全局规则缺失时，记录缺口并交宿主维护入口处理。
 6. 分别报告源模板、项目采用和宿主加载结果；一个项目更新不代表所有目标完成。保存、发布与安装按当次授权。
 
+项目需要派生状态页或阶段收尾时读 [文档操作](references/doc-ops.md)，需要目录归属与保留检查时读 [目录治理](references/directory-governance.md)，接入静态检查和注释守卫时读 [代码守卫](references/code-guardrails.md)。
+
 新建或改变环境时读 [环境接入](references/environment.md)；决定新产物落点时读 [目录设计](references/document-layout.md)；文档职责调整读 [文档职责](references/documentation.md)，维护文本读 [文档维护](references/document-maintenance.md)，专项迁移读 [迁移](references/document-migration.md)。这些是 setup 的接入方法，不是每次开发的必读链。
 
 用户明确接入共享记忆时读 [记忆接入](references/memory-adoption.md)。Hindsight 保留经验、偏好和决定背景，不替代项目规则、用户授权或确定性检查。

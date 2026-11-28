@@ -1,3 +1,4 @@
+from importlib import import_module
 import json
 from pathlib import Path
 import shutil
@@ -7,7 +8,7 @@ import unittest
 
 SCRIPTS = Path(__file__).resolve().parents[1] / 'skills/setup-solo-workflow/scripts'
 sys.path.insert(0, str(SCRIPTS))
-import smyw_artifacts as adapter
+adapter = import_module('smyw_artifacts')
 
 life = adapter.life
 NODE = shutil.which('node')

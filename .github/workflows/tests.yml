@@ -13,8 +13,19 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
       - name: Prepare environment
         run: uv sync --locked
+      - name: Check Python lint
+        run: uv run ruff check skills tools tests
+      - name: Check changed comments
+        env:
+          COMMENT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if ($env:COMMENT_BASE -and $env:COMMENT_BASE -notmatch '^0+$') {
+            uv run python -B skills/setup-solo-workflow/scripts/comment_guard.py --diff $env:COMMENT_BASE
+          }
       - name: Run tests
         run: uv run python -m unittest discover -s tests -v

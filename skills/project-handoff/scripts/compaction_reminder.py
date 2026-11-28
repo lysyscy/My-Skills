@@ -36,9 +36,9 @@ def locked(path, timeout=2):
                 else:
                     fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
                 break
-            except OSError:
+            except OSError as error:
                 if time.monotonic() >= deadline:
-                    raise TimeoutError("state lock timed out")
+                    raise TimeoutError("state lock timed out") from error
                 time.sleep(0.025)
         try:
             yield
@@ -385,7 +385,9 @@ def final_contains_notice(message, notice):
             fenced = not fenced
         elif not fenced and not line.lstrip().startswith(">"):
             lines.append(line)
-    normalize = lambda value: re.sub(r"[\s*`_]", "", value)
+    def normalize(value):
+        return re.sub(r"[\s*`_]", "", value)
+
     paragraphs = [p for p in re.split(r"\n\s*\n", "\n".join(lines)) if p.strip()]
     return bool(paragraphs) and normalize(paragraphs[0]) == normalize(notice)
 
